@@ -126,4 +126,11 @@
       <Filter>include\core</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+    <None Include="..\PHILOSOPHY.md" />
+  </ItemGroup>
 </Project>
