@@ -1,52 +1,38 @@
-RiftNet - Core Networking System
+# RiftNet — High-Performance Secure UDP Networking Library
 
-Primary responsibility: asynchronous UDP networking with reliability, encryption, compression, and system-level packet routing.
+**RiftNet** is a fully modular, C++-based networking library built for real-time, high-performance multiplayer games and simulations. It includes:
 
-🔧 System Scope
+- 🔒 **Built-in Encryption** with libsodium (X25519 + ChaCha20-Poly1305 or AES256-GCM)
+- 📦 **Optional Compression** via LZ4 or Zstd
+- 🔁 **Reliable UDP** with retransmission, RTT estimation, and congestion control
+- 🧩 Clean separation of `RiftNet` (Network), `RiftHandler` (Message Parsing), and other layers
+- 🧠 Built for games, simulations, and real-time systems needing secure sync at scale
 
-Handle raw UDP I/O with support for async send/recv
+---
 
-Provide reliable message delivery over UDP
+## ⚙️ Features
 
-Support encryption protocols (AES256-GCM / ChaCha20-Poly1305)
+- UDP-based socket engine using Windows IOCP
+- Automatic key exchange and secure channel setup
+- Optional compression layer pluggable at runtime
+- Custom packet header format supporting multiple message types
+- Reliable packet queue and resend logic with sequence tracking
+- Future support for EventBus-based routing and encryption rules per channel/message
 
-Compress packets to reduce bandwidth usage (LZ4 / Zstd)
+---
 
-Interface with RiftEventBus to dispatch messages internally
+## 🚀 Getting Started
 
-✅ Objectives
+### 1. Include the SDK
 
-1. Socket Layer (Platform-Agnostic)
+- Add `RiftNet/include/` to your project include path
+- Link against `RiftNet.lib` (or use DLL build)
 
+### 2. Create a `Connection` and start sending encrypted, compressed messages:
 
-
-2. Reliability Layer
-
-
-
-3. Encryption Layer
-
-
-
-4. Compression Layer
-
-
-
-5. Application Layer Integration
-
-
-
-6. Diagnostics & Debugging
-
-
-
-🔐 Dependencies
-
-Uses FlatBuffers via RiftSerializer (custom implementation to come later)
-
-Should emit to RiftEventBus
-
-Will interact with RiftCombat, RiftShardEngine, RiftAuth, etc.
-
-Let me know when to proceed with the next system (RiftEventBus, RiftPhys, etc).
-
+```cpp
+Connection conn;
+conn.initiateKeyExchange();
+conn.sendReliable(jsonMessage, [](bool success) {
+    if (success) std::cout << "Sent!" << std::endl;
+});
