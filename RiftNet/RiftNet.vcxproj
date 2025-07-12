@@ -155,8 +155,10 @@
     <ClInclude Include="include\core\NetworkTypes.hpp" />
     <ClInclude Include="include\core\PacketEncryptCompress.hpp" />
     <ClInclude Include="include\core\PacketProcessor.hpp" />
+    <ClInclude Include="include\core\PacketTypes.hpp" />
     <ClInclude Include="include\core\ReliableConnectionState.hpp" />
     <ClInclude Include="include\core\ReliablePacketHeader.hpp" />
+    <ClInclude Include="include\core\ReliableTypes.hpp" />
     <ClInclude Include="include\core\RiftNetEngine.hpp" />
     <ClInclude Include="include\core\SecureChannel.hpp" />
     <ClInclude Include="include\core\UDPReliabilityProtocol.hpp" />

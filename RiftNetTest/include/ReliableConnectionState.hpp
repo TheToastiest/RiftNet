@@ -4,7 +4,7 @@
 #include <vector>
 #include <list>
 #include <chrono>
-#include "ReliablePacketHeader.hpp"
+#include "ReliableTypes.hpp"
 #include "NetworkTypes.hpp"
 
 namespace RiftForged {

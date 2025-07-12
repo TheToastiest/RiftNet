@@ -1,30 +1,29 @@
-﻿#include <iostream>
-#include <iomanip>
+﻿// File: RiftNetTest_MultiClient.cpp
+
+#include <iostream>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <thread>
+#include <mutex>
 #include <chrono>
 #include <random>
+#include <sstream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <atomic>
 
 #include "include/KeyExchange.hpp"
 #include "include/SecureChannel.hpp"
+#include "include/ReliableTypes.hpp"
+#include "include/ReliableConnectionState.hpp"
+#include "include/UDPReliabilityProtocol.hpp"
 #include "riftcompress.hpp"
 #include "riftencrypt.hpp"
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace RiftForged::Networking;
-
-void print_key(const std::string& label, const KeyExchange::KeyBuffer& key) {
-    std::cout << label << ": ";
-    for (unsigned char byte : key) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0')
-                  << static_cast<int>(byte);
-    }
-    std::cout << std::dec << std::endl;
-}
 
 std::vector<uint8_t> generateSimulatedPayload(size_t count) {
     std::ostringstream oss;
@@ -40,105 +39,139 @@ std::vector<uint8_t> generateSimulatedPayload(size_t count) {
     return std::vector<uint8_t>(result.begin(), result.end());
 }
 
-int main() {
+struct PeerConnectionState {
+    SecureChannel secureChannel;
+    Compressor compressor = Compressor(std::make_unique<LZ4Algorithm>());
+    UDPReliabilityProtocol reliability;
+    ReliableConnectionState connectionState;
+    uint64_t txNonce = 1;
+    uint64_t lastRxNonce = 0;
+};
+
+void RunClient(const std::string& peerName, const std::string& ip, uint16_t port) {
     WSADATA wsaData;
     SOCKET sock = INVALID_SOCKET;
 
-    const char* SERVER_IP = "127.0.0.1";
-    const uint16_t SERVER_PORT = 7777;
-
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "[Client] WSAStartup failed.\n";
-        return 1;
+        std::cerr << "[" << peerName << "] WSAStartup failed.\n";
+        return;
     }
 
     sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock == INVALID_SOCKET) {
-        std::cerr << "[Client] Socket creation failed.\n";
+        std::cerr << "[" << peerName << "] Socket creation failed.\n";
         WSACleanup();
-        return 1;
+        return;
     }
 
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(SERVER_PORT);
-    inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
+    serverAddr.sin_port = htons(port);
+    inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr);
 
-    // === Key Exchange ===
-    KeyExchange clientKE;
-    const auto& clientPubKey = clientKE.GetLocalPublicKey();
+    // Key exchange
+    KeyExchange ke;
+    const auto& pubKey = ke.GetLocalPublicKey();
 
-    sendto(sock, reinterpret_cast<const char*>(clientPubKey.data()), clientPubKey.size(), 0,
-           reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-    std::cout << "[Client] Sent public key to server.\n";
+    sendto(sock, reinterpret_cast<const char*>(pubKey.data()), pubKey.size(), 0,
+        reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
+    std::cout << "[" << peerName << "] Sent public key.\n";
 
-    std::vector<uint8_t> serverKeyBuf(32);
+    std::vector<uint8_t> recvBuf(4096);
     sockaddr_in from{};
     int fromLen = sizeof(from);
-    int bytesReceived = recvfrom(sock, reinterpret_cast<char*>(serverKeyBuf.data()), 32, 0,
-                                 reinterpret_cast<sockaddr*>(&from), &fromLen);
-    if (bytesReceived != 32) {
-        std::cerr << "[Client] Failed to receive server public key.\n";
+    int received = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), 32, 0,
+        reinterpret_cast<sockaddr*>(&from), &fromLen);
+    if (received != 32) {
+        std::cerr << "[" << peerName << "] Failed to receive server key.\n";
         closesocket(sock);
         WSACleanup();
-        return 1;
+        return;
     }
 
-    KeyExchange::KeyBuffer serverPubKey;
-    std::memcpy(serverPubKey.data(), serverKeyBuf.data(), 32);
-    clientKE.SetRemotePublicKey(serverPubKey);
+    KeyExchange::KeyBuffer serverKey;
+    std::memcpy(serverKey.data(), recvBuf.data(), 32);
+    ke.SetRemotePublicKey(serverKey);
 
     KeyExchange::KeyBuffer rxKey, txKey;
-    if (!clientKE.DeriveSharedKey(false, rxKey, txKey)) {
-        std::cerr << "[Client] Shared key derivation failed.\n";
+    if (!ke.DeriveSharedKey(false, rxKey, txKey)) {
+        std::cerr << "[" << peerName << "] Shared key failure.\n";
         closesocket(sock);
         WSACleanup();
-        return 1;
+        return;
     }
 
-    SecureChannel channel;
-    channel.Initialize(rxKey, txKey);
-    Compressor compressor(std::make_unique<LZ4Algorithm>());
+    PeerConnectionState state;
+    state.secureChannel.Initialize(rxKey, txKey);
+    std::cout << "[" << peerName << "] Secure channel ready.\n";
 
-    uint64_t nonce = 1;
-
-    std::cout << "[Client] Secure channel ready. Starting packet loop...\n";
-
-    // === Random Packet Loop ===
     std::mt19937 rng(std::random_device{}());
     std::uniform_int_distribution<int> sizeDist(1500, 3000);
-    std::uniform_int_distribution<int> sleepDist(100, 300); // milliseconds
+    std::uniform_int_distribution<int> sleepDist(100, 300);
 
     while (true) {
-        size_t packetSize = sizeDist(rng);
-        size_t messageCount = std::max<size_t>(1, packetSize / 120); // ~110–140 bytes per structured payload
-        std::vector<uint8_t> payload = generateSimulatedPayload(messageCount);
+        size_t size = sizeDist(rng);
+        size_t msgCount = std::max<size_t>(1, size / 120);
+        auto payload = generateSimulatedPayload(msgCount);
+        auto compressed = state.compressor.compress(payload);
 
-        std::vector<uint8_t> compressed = compressor.compress(payload);
-        if (compressed.empty()) {
-            std::cerr << "[Client] Compression failed.\n";
-            continue;
+        auto packets = state.reliability.PrepareOutgoingPackets(
+            state.connectionState,
+            compressed.data(),
+            static_cast<uint32_t>(compressed.size()),
+            0x01  // Reliable flag
+        );
+
+        for (auto& pkt : packets) {
+            auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
+            sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
+                reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
+            std::cout << "[" << peerName << "] Sent encrypted reliable packet.\n";
         }
 
-        std::vector<uint8_t> encrypted = channel.Encrypt(compressed, nonce++);
-        if (encrypted.empty()) {
-            std::cerr << "[Client] Encryption failed.\n";
-            continue;
+        // Receive echo
+        u_long mode = 1;
+        ioctlsocket(sock, FIONBIO, &mode);
+        int got = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), recvBuf.size(), 0,
+            nullptr, nullptr);
+        if (got > 0) {
+            std::vector<uint8_t> decrypted;
+            for (uint64_t n = state.lastRxNonce + 1; n <= state.lastRxNonce + 5; ++n) {
+                if (state.secureChannel.Decrypt(std::vector<uint8_t>(recvBuf.begin(), recvBuf.begin() + got), decrypted, n)) {
+                    state.lastRxNonce = n;
+                    if (decrypted.size() < sizeof(ReliablePacketHeader)) continue;
+
+                    ReliablePacketHeader recvHeader;
+                    std::memcpy(&recvHeader, decrypted.data(), sizeof(ReliablePacketHeader));
+                    std::vector<uint8_t> compressedData(decrypted.begin() + sizeof(ReliablePacketHeader), decrypted.end());
+
+                    std::vector<uint8_t> outPayload;
+                    if (state.reliability.ProcessIncomingHeader(state.connectionState, recvHeader, compressedData.data(), static_cast<uint16_t>(compressedData.size()), outPayload)) {
+                        auto plain = state.compressor.decompress(outPayload);
+                        std::string msg(plain.begin(), plain.end());
+                        std::cout << "[" << peerName << "] Echo (type " << (int)recvHeader.packetType << ", nonce " << recvHeader.nonce << "):\n" << msg << "\n";
+                    }
+                    break;
+                }
+            }
         }
 
-        int sent = sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
-                          reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-        if (sent == SOCKET_ERROR) {
-            std::cerr << "[Client] Send failed: " << WSAGetLastError() << "\n";
-        } else {
-            std::cout << "[Client] Sent packet (" << packetSize << " bytes raw, "
-                      << encrypted.size() << " bytes encrypted).\n";
-        }
+        // Retransmit
+        state.reliability.ProcessRetransmissions(state.connectionState, [&](const std::vector<uint8_t>& pkt) {
+            auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
+            sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
+                reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
+            std::cout << "[" << peerName << "] Retransmitted packet.\n";
+            });
 
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepDist(rng)));
     }
 
     closesocket(sock);
     WSACleanup();
+}
+
+int main() {
+    RunClient("ClientA", "127.0.0.1", 7777);
     return 0;
 }

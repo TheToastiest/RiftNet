@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include "RiftEncrypt.hpp"
-#include "riftforged_compress.hpp"
+#include "riftcompress.hpp"
 
 namespace RiftForged {
     namespace Networking {

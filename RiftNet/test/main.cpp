@@ -21,6 +21,7 @@
 #include "../include/core/Connection.hpp"
 #include "../include/core/HandshakePacket.hpp"
 #include "../include/core/SecureChannel.hpp"
+#include "../include/core/PacketTypes.hpp"
 #include "RiftEncrypt.hpp"
 #include "riftcompress.hpp"
 
@@ -37,12 +38,12 @@ public:
         const uint8_t* data,
         uint32_t size,
         OverlappedIOContext* context) override {
-
         std::string key = sender.ToString();
         std::shared_ptr<Connection> conn;
 
         {
             std::scoped_lock lock(g_connectionMutex);
+
             if (g_connectionMap.count(key) == 0) {
                 auto newConn = std::make_shared<Connection>(sender);
                 g_connectionMap[key] = newConn;
@@ -53,20 +54,20 @@ public:
                     udpSocket.SendData(recipient, packet.data(), static_cast<uint32_t>(packet.size()));
                     });
 
+                // Immediately send local public key as handshake start
                 const auto& publicKey = newConn->GetLocalPublicKey();
                 newConn->SendUnencrypted(std::vector<uint8_t>(publicKey.begin(), publicKey.end()));
             }
+
             conn = g_connectionMap[key];
         }
 
+        // Forward raw UDP data to the Connection to decrypt, decompress, interpret, and possibly respond
         std::vector<uint8_t> payload(data, data + size);
         conn->HandleRawPacket(payload);
     }
 
-    void OnSendCompleted(OverlappedIOContext* context,
-        bool success,
-        uint32_t bytesSent) override {
-
+    void OnSendCompleted(OverlappedIOContext* context, bool success, uint32_t bytesSent) override {
         context->endpoint = NetworkEndpoint(context->remoteAddrNative);
         const auto targetStr = context->endpoint.ToString();
 
@@ -90,6 +91,7 @@ int main() {
 
     spdlog::set_default_logger(logger);
     spdlog::set_level(spdlog::level::debug);
+
     RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
 
     PacketHandler handler;
@@ -106,6 +108,7 @@ int main() {
 
     RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
 
+    // Keep server running
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }

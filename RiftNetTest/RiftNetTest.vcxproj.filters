@@ -24,12 +24,27 @@
     <ClCompile Include="src\SecureChannel.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\UDPReliabilityProtocol.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\KeyExchange.hpp">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\SecureChannel.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ReliableTypes.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UDPReliabilityProtocol.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ReliableConnectionState.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\NetworkTypes.hpp">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

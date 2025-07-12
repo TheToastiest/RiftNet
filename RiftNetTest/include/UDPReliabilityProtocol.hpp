@@ -5,21 +5,21 @@
 #include <vector>
 #include <cstdint>
 #include <functional>
-#include <chrono>  // ✅ FIXED: Needed for steady_clock
 
 namespace RiftForged {
     namespace Networking {
 
         class UDPReliabilityProtocol {
         public:
-            // Prepare outgoing packets (e.g., for future fragmentation)
+
+            // Prepare outgoing packets (e.g. split/fragmentation later, reliable state update)
             static std::vector<std::vector<uint8_t>> PrepareOutgoingPackets(
                 ReliableConnectionState& state,
                 const uint8_t* payload,
                 uint32_t payloadSize,
                 uint8_t flags);
 
-            // Process incoming packet and return true if valid
+            // Process incoming packet header and return true if payload should be processed
             static bool ProcessIncomingHeader(
                 ReliableConnectionState& state,
                 const ReliablePacketHeader& header,
@@ -27,16 +27,15 @@ namespace RiftForged {
                 uint16_t payloadLength,
                 std::vector<uint8_t>& outPayload);
 
-            // Whether to send an ACK packet
-            static bool ShouldSendAck(
-                ReliableConnectionState& state);
+            // Determine if an ack-only packet should be sent
+            static bool ShouldSendAck(ReliableConnectionState& state);
 
-            // Handle retransmission logic
+            // Perform retransmissions for unacked reliable packets
             static void ProcessRetransmissions(
                 ReliableConnectionState& state,
                 const std::function<void(const std::vector<uint8_t>&)>& sendFunc);
 
-            // Timeout check
+            // Check if connection timed out
             static bool IsConnectionTimedOut(
                 const ReliableConnectionState& state,
                 const std::chrono::steady_clock::time_point& now,

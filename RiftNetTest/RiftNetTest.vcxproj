@@ -132,10 +132,15 @@
     <ClCompile Include="RiftNetTest.cpp" />
     <ClCompile Include="src\KeyExchange.cpp" />
     <ClCompile Include="src\SecureChannel.cpp" />
+    <ClCompile Include="src\UDPReliabilityProtocol.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\KeyExchange.hpp" />
+    <ClInclude Include="include\NetworkTypes.hpp" />
+    <ClInclude Include="include\ReliableConnectionState.hpp" />
+    <ClInclude Include="include\ReliableTypes.hpp" />
     <ClInclude Include="include\SecureChannel.hpp" />
+    <ClInclude Include="include\UDPReliabilityProtocol.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

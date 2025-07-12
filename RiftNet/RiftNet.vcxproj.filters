@@ -21,7 +21,7 @@
     <Filter Include="include\core">
       <UniqueIdentifier>{a75fce6b-9aa4-492e-a95f-99ce467c4f47}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\platform">
+    <Filter Include="src\core\platform">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
@@ -40,7 +40,7 @@
       <Filter>test</Filter>
     </ClCompile>
     <ClCompile Include="src\platform\UDPSocketAsync.cpp">
-      <Filter>src\platform</Filter>
+      <Filter>src\core\platform</Filter>
     </ClCompile>
     <ClCompile Include="src\core\Logger.cpp">
       <Filter>src\core</Filter>
@@ -117,6 +117,12 @@
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\core\IConnectionManager.hpp">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\PacketTypes.hpp">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\ReliableTypes.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
   </ItemGroup>

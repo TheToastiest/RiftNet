@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "../../include/core/UDPReliabilityProtocol.hpp"
-#include "../../include/core/ReliableConnectionState.hpp"
-#include "../../include/core/ReliableTypes.hpp"
+#include "../include/UDPReliabilityProtocol.hpp"
+#include "../include/ReliableConnectionState.hpp"
+#include "../include/ReliableTypes.hpp"
 #include <cstring>
 #include <algorithm>
 
