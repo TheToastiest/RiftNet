@@ -172,7 +172,7 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
 }
 
 int main() {
-    const int numClients = 5000;
+    const int numClients = 100;
     const std::string ip = "127.0.0.1";
     const uint16_t port = 7777;
 
