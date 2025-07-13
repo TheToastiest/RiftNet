@@ -83,29 +83,29 @@ public:
     }
 };
 
-//int main() {
-//    Logger::Init();  // Initializes spdlog with console + file sinks
-//    udpSocket = std::make_unique<UDPSocketAsync>();
-//    RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
-//
-//    PacketHandler handler;
-//
-//    if (!udpSocket->Init("0.0.0.0", 7777, &handler)) {
-//        RF_NETWORK_ERROR("Failed to initialize UDPSocketAsync.");
-//        return 1;
-//    }
-//
-//    if (!udpSocket->Start()) {
-//        RF_NETWORK_ERROR("Failed to start UDPSocketAsync.");
-//        return 1;
-//    }
-//
-//    RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
-//
-//    // Keep server running
-//    while (true) {
-//        std::this_thread::sleep_for(std::chrono::seconds(1));
-//    }
-//
-//    return 0;
-//}
+int main() {
+    Logger::Init();  // Initializes spdlog with console + file sinks
+    udpSocket = std::make_unique<UDPSocketAsync>();
+    RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
+
+    PacketHandler handler;
+
+    if (!udpSocket->Init("0.0.0.0", 7777, &handler)) {
+        RF_NETWORK_ERROR("Failed to initialize UDPSocketAsync.");
+        return 1;
+    }
+
+    if (!udpSocket->Start()) {
+        RF_NETWORK_ERROR("Failed to start UDPSocketAsync.");
+        return 1;
+    }
+
+    RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
+
+    // Keep server running
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    return 0;
+}

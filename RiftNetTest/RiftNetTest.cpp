@@ -18,7 +18,7 @@
 #include "include/ReliableTypes.hpp"
 #include "include/ReliableConnectionState.hpp"
 #include "include/UDPReliabilityProtocol.hpp"
-#include "riftcompress.hpp"
+#include "RiftCompress.hpp"
 #include "riftencrypt.hpp"
 
 #pragma comment(lib, "ws2_32.lib")
