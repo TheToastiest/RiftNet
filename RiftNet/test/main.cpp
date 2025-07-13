@@ -26,11 +26,12 @@
 #include "riftcompress.hpp"
 
 using namespace RiftForged::Networking;
+using namespace RiftForged::Logging;
 
 static std::unordered_map<std::string, std::shared_ptr<Connection>> g_connectionMap;
 static std::mutex g_connectionMutex;
 
-UDPSocketAsync udpSocket;
+std::unique_ptr<UDPSocketAsync> udpSocket;
 
 class PacketHandler : public INetworkIOEvents {
 public:
@@ -51,7 +52,7 @@ public:
                 RF_NETWORK_INFO("New connection created for {}", key);
 
                 newConn->SetSendCallback([](const NetworkEndpoint& recipient, const std::vector<uint8_t>& packet) {
-                    udpSocket.SendData(recipient, packet.data(), static_cast<uint32_t>(packet.size()));
+                    udpSocket->SendData(recipient, packet.data(), static_cast<uint32_t>(packet.size()));
                     });
 
                 // Immediately send local public key as handshake start
@@ -83,25 +84,18 @@ public:
 };
 
 int main() {
-    auto logger = spdlog::stdout_color_mt("RiftNet");
-    if (!logger) {
-        std::cerr << "Logger 'RiftNet' failed to initialize." << std::endl;
-        return 1;
-    }
-
-    spdlog::set_default_logger(logger);
-    spdlog::set_level(spdlog::level::debug);
-
+    Logger::Init();  // Initializes spdlog with console + file sinks
+    udpSocket = std::make_unique<UDPSocketAsync>();
     RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
 
     PacketHandler handler;
 
-    if (!udpSocket.Init("0.0.0.0", 7777, &handler)) {
+    if (!udpSocket->Init("0.0.0.0", 7777, &handler)) {
         RF_NETWORK_ERROR("Failed to initialize UDPSocketAsync.");
         return 1;
     }
 
-    if (!udpSocket.Start()) {
+    if (!udpSocket->Start()) {
         RF_NETWORK_ERROR("Failed to start UDPSocketAsync.");
         return 1;
     }

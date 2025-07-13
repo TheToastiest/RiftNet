@@ -172,6 +172,29 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
 }
 
 int main() {
-    RunClient("ClientA", "127.0.0.1", 7777);
+    const int numClients = 5000;
+    const std::string ip = "127.0.0.1";
+    const uint16_t port = 7777;
+
+    std::vector<std::thread> clientThreads;
+
+    for (int i = 0; i < numClients; ++i) {
+        std::ostringstream oss;
+        oss << "Client" << std::setw(2) << std::setfill('0') << i;
+        std::string name = oss.str();  // extract to copyable std::string
+
+        clientThreads.emplace_back([name, ip, port]() {
+            RunClient(name, ip, port);
+            });
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // optional delay
+    }
+
+
+    // Optional: join all threads (if you ever plan on clean exit)
+    for (auto& t : clientThreads) {
+        if (t.joinable()) t.join();
+    }
+
     return 0;
 }

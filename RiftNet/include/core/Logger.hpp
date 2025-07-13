@@ -1,29 +1,29 @@
+// File: /Logger.hpp
 #pragma once
-
 #include <memory>
+#include <string>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace RiftNet::Log
-{
-    // Optional init method
-    void Init();
+namespace RiftForged::Logging {
 
-    // Global loggers by category
-    std::shared_ptr<spdlog::logger>& GetNetworkLogger();
+    class Logger {
+    public:
+        static void Init();
+
+        static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return coreLogger; }
+
+    private:
+        static std::shared_ptr<spdlog::logger> coreLogger;
+    };
+
+    // Convenience macros
+#define RF_NETWORK_TRACE(...)    ::RiftForged::Logging::Logger::GetCoreLogger()->trace(__VA_ARGS__)
+#define RF_NETWORK_DEBUG(...)    ::RiftForged::Logging::Logger::GetCoreLogger()->debug(__VA_ARGS__)
+#define RF_NETWORK_INFO(...)     ::RiftForged::Logging::Logger::GetCoreLogger()->info(__VA_ARGS__)
+#define RF_NETWORK_WARN(...)     ::RiftForged::Logging::Logger::GetCoreLogger()->warn(__VA_ARGS__)
+#define RF_NETWORK_ERROR(...)    ::RiftForged::Logging::Logger::GetCoreLogger()->error(__VA_ARGS__)
+#define RF_NETWORK_CRITICAL(...) ::RiftForged::Logging::Logger::GetCoreLogger()->critical(__VA_ARGS__)
+
 }
-
-// --- Macros for use ---
-//#define RF_NETWORK_TRACE(...)    ::RiftNet::Log::GetNetworkLogger()->trace(__VA_ARGS__)
-//#define RF_NETWORK_DEBUG(...)    ::RiftNet::Log::GetNetworkLogger()->debug(__VA_ARGS__)
-//#define RF_NETWORK_INFO(...)     ::RiftNet::Log::GetNetworkLogger()->info(__VA_ARGS__)
-//#define RF_NETWORK_WARN(...)     ::RiftNet::Log::GetNetworkLogger()->warn(__VA_ARGS__)
-//#define RF_NETWORK_ERROR(...)    ::RiftNet::Log::GetNetworkLogger()->error(__VA_ARGS__)
-//#define RF_NETWORK_CRITICAL(...) ::RiftNet::Log::GetNetworkLogger()->critical(__VA_ARGS__)
-
-#define RF_NETWORK_TRACE(...)   if (auto lg = spdlog::get("RiftNet")) lg->trace(__VA_ARGS__)
-#define RF_NETWORK_INFO(...)  if (auto lg = spdlog::get("RiftNet")) lg->info(__VA_ARGS__)
-#define RF_NETWORK_DEBUG(...) if (auto lg = spdlog::get("RiftNet")) lg->debug(__VA_ARGS__)
-#define RF_NETWORK_ERROR(...) if (auto lg = spdlog::get("RiftNet")) lg->error(__VA_ARGS__)
-#define RF_NETWORK_WARN(...)  if (auto lg = spdlog::get("RiftNet")) lg->warn(__VA_ARGS__)
-#define RF_NETWORK_CRITICAL(...) if (auto lg = spdlog::get("RiftNet")) lg->critical(__VA_ARGS__)

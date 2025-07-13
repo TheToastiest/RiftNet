@@ -166,11 +166,10 @@
     <ClInclude Include="include\platform\UDPSocketAsync.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\LICENSE.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\PHILOSOPHY.md" />
-    <None Include="..\README.md" />
+    <None Include="..\Docs\LICENSE.md" />
+    <None Include="..\Docs\PHILOSOPHY.md" />
+    <None Include="..\Docs\README.md" />
+    <None Include="..\Docs\RiftNet_Indie_License_v1.0.pdf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

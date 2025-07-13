@@ -25,6 +25,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="Docs">
+      <UniqueIdentifier>{fc16ac3a-14f8-42ce-9dd0-7f173f60d6fb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\core\Connection.cpp">
@@ -127,10 +130,17 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\LICENSE.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\README.md" />
-    <None Include="..\PHILOSOPHY.md" />
+    <None Include="..\Docs\PHILOSOPHY.md">
+      <Filter>Docs</Filter>
+    </None>
+    <None Include="..\Docs\README.md">
+      <Filter>Docs</Filter>
+    </None>
+    <None Include="..\Docs\LICENSE.md">
+      <Filter>Docs</Filter>
+    </None>
+    <None Include="..\Docs\RiftNet_Indie_License_v1.0.pdf">
+      <Filter>Docs</Filter>
+    </None>
   </ItemGroup>
 </Project>
