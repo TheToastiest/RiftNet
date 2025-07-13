@@ -36,6 +36,17 @@ It was built from the ground up as a **philosophical counterpunch** to deceptive
 
 ---
 
+## 🔗 Dependencies
+
+RiftNet depends on the following libraries, which are also MIT-licensed and available publicly:
+
+- [RiftEncrypt](https://github.com/TheToastiest/RiftEncrypt) – Secure channel, key exchange, encryption logic (libsodium-powered)
+- [RiftCompress](https://github.com/TheToastiest/RiftCompress) – Optional compression via LZ4 or Zstd
+
+These are standalone libraries but tightly integrated into RiftNet's pipeline.
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Include the SDK
