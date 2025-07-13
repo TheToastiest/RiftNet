@@ -1,89 +1,63 @@
-# RiftNet Indie Commercial License
+﻿# RiftNet — Open Source Manifesto License (MIT-Based)
 
 **Effective Date**: July 12, 2025  
 **Version**: 1.0
 
-This License Agreement ("Agreement") is made between you ("Licensee") and the author and copyright holder of RiftNet ("Licensor").
+This is not a EULA. This is not a trap.  
+This is a promise:
 
-By downloading, accessing, or using RiftNet ("Software"), you agree to the following terms:
-
----
-
-## 1. Grant of License
-
-Licensor hereby grants Licensee a **non-exclusive**, **non-transferable**, license **terminable as described in Section 4** to use the Software solely for the development and distribution of commercial and non-commercial applications, provided that:
-
-- Your **gross revenue (company-wide)** does not exceed **$1,000,000 USD** in the prior fiscal year.
-- You do **not redistribute** the Software or its source code outside of your own applications.
-- You do **not sublicense**, resell, or offer the Software as part of a competing SDK, library, or networking tool.
+You can use this software — **freely** — in personal, academic, commercial, or experimental projects, under the following terms:
 
 ---
 
-## 2. License Tiers
+## ✅ You CAN:
 
-- **Indie Monthly License**: $75 USD/month  
-- **Indie Yearly License**: $750 USD/year *(save 2 months)*  
-- **Enterprise License**: Required if annual revenue exceeds $1,000,000 USD. Contact Licensor for custom terms.
-
-This license includes full access to **precompiled binaries** and **integration headers**.  
-**Source code access** may be available upon request at the Licensor�s discretion.
-
-> *Note: All fees are listed in USD. Taxes and any transaction fees are the responsibility of the Licensee.*
+- Use RiftNet in any project, for any purpose.
+- Modify, adapt, and build upon it however you want.
+- Distribute it with your own projects (binary or source).
+- Learn from it. Fork it. Expand it.
+- Share it with others — just keep this license intact.
 
 ---
 
-## 3. Rights & Restrictions
+## ❌ You CANNOT:
 
-### You MAY:
-
-- Integrate the Software into your own applications and games.
-- Use the Software commercially or non-commercially, provided your revenue remains under the stated cap.
-- Modify the Software for personal or internal use.
-
-### You MAY NOT:
-
-- Redistribute the Software (source or binary) as a standalone package or SDK.
-- Resell, relicense, or rent the Software or its components.
-- Share the Software with third parties outside of your development team.
-- Use the Software in illegal, malicious, or unethical products.
-- Use the Software to build frameworks, engines, or services that expose RiftNet�s API or functionality as a public-facing or developer-accessible tool.
+- Hold the author liable for anything that breaks, explodes, or desyncs.
+- Claim you wrote RiftNet if you didn’t.
+- Expect support, hand-holding, or bug fixes on a timeline.
+- Use this code as a base for something malicious, exploitative, or harmful.
 
 ---
 
-## 4. Termination
+## 💬 Plain English Warranty Disclaimer
 
-This license is **automatically terminated** if the Licensee violates any of the terms in this Agreement.  
-Licensor may also terminate this Agreement if the Licensee:
+This code is provided **"as-is"**, with **no warranty**, **no guarantee**, and **no support contract**.
 
-- Fails to pay applicable license fees.
-- Breaches any other material condition of the Agreement.
-
-Upon termination, all copies of the Software in your possession must be destroyed.
+If it works, great. If it doesn’t, fix it.  
+If it breaks something in your game, system, or reality, that’s on you — not the author.
 
 ---
 
-## 5. Warranty Disclaimer
+## ⚖️ Legal Stuff (MIT License Clause)
 
-> THE SOFTWARE IS PROVIDED �AS IS� AND WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction — including the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
 
----
+> The above rights are granted **as long as** the original copyright notice and this license appear in all copies or substantial portions of the Software.
 
-## 6. Support & Updates
-
-Licensor may, at their sole discretion, provide updates, patches, and technical support to paying Licensees.
+> THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, ARISING FROM THE USE OR INABILITY TO USE THE SOFTWARE.
 
 ---
 
-## 7. Governing Law
+## 🔑 License Identity
 
-This Agreement shall be governed by the laws of **Ontario, Canada**, without regard to its conflict of law provisions.
+This license is a **philosophical fork** of MIT, shaped around the RiftForged design doctrine:
+> “Truth isn’t proprietary. But it isn’t customer service either.”
 
-Any disputes arising under or in connection with this Agreement shall be subject to the **exclusive jurisdiction of the courts located in Ontario, Canada**.
+RiftNet is shared in the open for the good of developers and the evolution of real-time systems.  
+There is **no support**, **no gatekeeping**, and **no charge** — but also **no guarantees**.
+
+Use it with clarity. Respect the work. Build something worthy.
 
 ---
 
-For questions, support, or enterprise licensing inquiries, please contact:  
-https://www.riftforged.org/contact
----
-
-� 2025 RiftForged Organization. All rights reserved.
+© 2025 Brinn Heseltine, RiftForged. Licensed under MIT.

@@ -1,23 +1,38 @@
 # RiftNet — High-Performance Secure UDP Networking Library
 
-**RiftNet** is a fully modular, C++-based networking library built for real-time, high-performance multiplayer games and simulations. It includes:
-
-- 🔒 **Built-in Encryption** with libsodium (X25519 + ChaCha20-Poly1305 or AES256-GCM)
-- 📦 **Optional Compression** via LZ4 or Zstd
-- 🔁 **Reliable UDP** with retransmission, RTT estimation, and congestion control
-- 🧩 Clean separation of `RiftNet` (Network), `RiftHandler` (Message Parsing), and other layers
-- 🧠 Built for games, simulations, and real-time systems needing secure sync at scale
+> **“Sync is not interpolation. It is truth moved across time.”**  
+> — *RiftForged Development Doctrine*
 
 ---
 
-## ⚙️ Features
+**RiftNet** is a modular, server-authoritative, C++ networking library designed for real-time multiplayer games, simulations, and virtual worlds.
 
-- UDP-based socket engine using Windows IOCP
-- Automatic key exchange and secure channel setup
-- Optional compression layer pluggable at runtime
-- Custom packet header format supporting multiple message types
-- Reliable packet queue and resend logic with sequence tracking
-- Future support for EventBus-based routing and encryption rules per channel/message
+It was built from the ground up as a **philosophical counterpunch** to deceptive networking systems. No fake sync. No client illusions. Just state, serialized, encrypted, and transmitted with intention.
+
+---
+
+## 🔧 Core Features
+
+- 🔒 **Encryption First**: Ephemeral key exchange (X25519) and secure channels using ChaCha20-Poly1305 or AES256-GCM, powered by libsodium.
+- 📦 **Optional Compression**: Pluggable compression (LZ4 or Zstd) per connection or message type.
+- 🔁 **Reliable UDP**: Custom protocol with sequence tracking, RTT estimation (RFC 6298), and congestion awareness.
+- 🧠 **Designed for Authority**: Built for authoritative servers that simulate truth, not interpolate fiction.
+- 🧩 **Layered Architecture**:
+  - `RiftNet` = Socket + Protocol
+  - `RiftHandler` = Serialization + Dispatch
+  - `RiftEventBus` = Message Routing (WIP)
+
+---
+
+## ⚙️ Technical Overview
+
+- ✅ Windows IOCP-based async UDP sockets
+- 🧩 Modular architecture — drop in/out encryption, compression, message layers
+- 🗝 Automatic key exchange + nonce tracking
+- 📬 ReliablePacketHeader structure for resend logic
+- 📉 RTT/congestion tracking (inspired by RFC 6298 + Karn’s Algorithm)
+- 🔐 Compression/encryption can be toggled per message or channel
+- 🧵 Fully multithreaded — built for performance and truth at scale
 
 ---
 
@@ -25,14 +40,15 @@
 
 ### 1. Include the SDK
 
-- Add `RiftNet/include/` to your project include path
-- Link against `RiftNet.lib` (or use DLL build)
+- Add `RiftNet/include/` to your project’s include path
+- Link against `RiftNet.lib` (or build as DLL)
 
-### 2. Create a `Connection` and start sending encrypted, compressed messages:
+### 2. Use the Connection class
 
 ```cpp
 Connection conn;
-conn.initiateKeyExchange();
+conn.initiateKeyExchange(); // Async X25519 key exchange
+
 conn.sendReliable(jsonMessage, [](bool success) {
     if (success) std::cout << "Sent!" << std::endl;
 });
