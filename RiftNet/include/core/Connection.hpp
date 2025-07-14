@@ -1,6 +1,4 @@
-// File: Connection.hpp
-
-#pragma once
+﻿#pragma once
 
 #include "Logger.hpp"
 #include "NetworkTypes.hpp"
@@ -17,13 +15,15 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <chrono>
 
 namespace RiftForged::Networking {
-
 
     class Connection {
     public:
         using SendCallback = std::function<void(const NetworkEndpoint&, const std::vector<uint8_t>&)>;
+        using Clock = std::chrono::steady_clock;
+        using TimePoint = Clock::time_point;
 
         Connection(const NetworkEndpoint& remoteAddr);
 
@@ -64,6 +64,12 @@ namespace RiftForged::Networking {
         SendCallback sendCallback;
         uint64_t nonceRx = 1;
         uint64_t nonceTx = 1;
+
+        // ✅ RTT + RTO tracking
+        std::unordered_map<uint16_t, TimePoint> rttTimestamps;
+        double srttMs = 200.0;
+        double rttVarMs = 100.0;
+        double rtoMs = 200.0;
     };
 
 } // namespace RiftForged::Networking

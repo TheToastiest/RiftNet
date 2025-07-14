@@ -24,6 +24,7 @@
     <ProjectGuid>{7e7e00b5-c0f9-4f81-b312-e5ac5f75f30e}</ProjectGuid>
     <RootNamespace>RiftNetTest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>RiftNetTest</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -103,7 +104,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Users\brinn\source\repos\RiftEncrypt\RiftEncrypt\include;C:\Users\brinn\source\repos\RiftCompress\RiftCompress\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\brinn\source\repos\RiftEncrypt\RiftEncrypt\include;C:\Users\brinn\source\repos\RiftCompress\RiftCompress\include;C:\Users\brinn\source\repos\RiftNet;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -135,24 +136,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="RiftNetTest.cpp" />
-    <ClCompile Include="src\Connection.cpp" />
-    <ClCompile Include="src\KeyExchange.cpp" />
-    <ClCompile Include="src\Logger.cpp" />
-    <ClCompile Include="src\SecureChannel.cpp" />
-    <ClCompile Include="src\UDPReliabilityProtocol.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\RiftNet\include\core\Connection.hpp" />
-    <ClInclude Include="include\HandshakePacket.hpp" />
-    <ClInclude Include="include\KeyExchange.hpp" />
-    <ClInclude Include="include\Logger.hpp" />
-    <ClInclude Include="include\NetworkEndpoint.hpp" />
-    <ClInclude Include="include\NetworkTypes.hpp" />
-    <ClInclude Include="include\PacketTypes.hpp" />
-    <ClInclude Include="include\ReliableConnectionState.hpp" />
-    <ClInclude Include="include\ReliableTypes.hpp" />
-    <ClInclude Include="include\SecureChannel.hpp" />
-    <ClInclude Include="include\UDPReliabilityProtocol.hpp" />
+    <ProjectReference Include="..\RiftNet\RiftNet.vcxproj">
+      <Project>{1f3bf9eb-4473-4b81-b952-128411568327}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

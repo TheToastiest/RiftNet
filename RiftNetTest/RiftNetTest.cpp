@@ -1,138 +1,152 @@
-﻿// File: RiftNetTest_MultiClient.cpp
-
-#include <iostream>
+﻿#include <unordered_map>
+#include <memory>
+#include <csignal>
 #include <thread>
-#include <vector>
+#include <atomic>
 #include <chrono>
-#include <random>
-#include <iomanip>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include <mutex>
+#include <iostream>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "include/Connection.hpp"
-#include "include/NetworkTypes.hpp"
-#include "include/Logger.hpp"
-
-#pragma comment(lib, "ws2_32.lib")
+#include "../RiftNet/include/core/Logger.hpp"
+#include "../RiftNet/include/core/NetworkTypes.hpp"
+#include "../RiftNet/include/core/INetworkIOEvents.hpp"
+#include "../RiftNet/include/core/INetworkIO.hpp"
+#include "../RiftNet/include/core/NetworkEndpoint.hpp"
+#include "../RiftNet/include/platform/UDPSocketAsync.hpp"
+#include "../RiftNet/include/core/Connection.hpp"
+#include "../RiftNet/include/core/UDPReliabilityProtocol.hpp"
+// ... other includes as needed
 
 using namespace RiftForged::Networking;
-using RiftForged::Logging::Logger;
+using namespace RiftForged::Logging;
 
-std::vector<uint8_t> generateSimulatedPayload(size_t count) {
-    std::ostringstream oss;
-    for (size_t i = 0; i < count; ++i) {
-        oss << R"({"type":"PlayerAction","playerId":)" << (i % 32)
-            << R"(,"action":"move","x":)" << (100 + (i % 10))
-            << R"(,"y":)" << (200 + (i % 10))
-            << R"(,"z":)" << (300 + (i % 10))
-            << R"(,"timestamp":)" << (i * 100)
-            << "}\n";
-    }
-    std::string result = oss.str();
-    return std::vector<uint8_t>(result.begin(), result.end());
-}
+static std::unordered_map<std::string, std::shared_ptr<Connection>> g_connectionMap;
+static std::mutex g_connectionMutex;
 
-void RunClient(const std::string& name, const std::string& ip, uint16_t port) {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "[" << name << "] WSAStartup failed.\n";
-        return;
-    }
+std::unique_ptr<UDPSocketAsync> udpSocket;
 
-    SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sock == INVALID_SOCKET) {
-        std::cerr << "[" << name << "] Socket creation failed.\n";
-        WSACleanup();
-        return;
-    }
+class PacketHandler : public INetworkIOEvents {
+public:
+    void OnRawDataReceived(const NetworkEndpoint& sender,
+        const uint8_t* data,
+        uint32_t size,
+        OverlappedIOContext* context) override {
+        std::string key = sender.ToString();
+        std::shared_ptr<Connection> conn;
 
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port);
-    inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr);
+        {
+            std::scoped_lock lock(g_connectionMutex);
 
-    NetworkEndpoint serverEndpoint(ip, port);
-    Connection client(serverEndpoint);
+            if (g_connectionMap.count(key) == 0) {
+                auto newConn = std::make_shared<Connection>(sender);
+                g_connectionMap[key] = newConn;
 
-    client.SetSendCallback([&](const NetworkEndpoint&, const std::vector<uint8_t>& data) {
-        sendto(sock, reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), 0,
-            reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-        });
+                RF_NETWORK_INFO("New connection created for {}", key);
 
-    // Key exchange
-    const auto& pubKey = client.GetLocalPublicKey();
-    sendto(sock, reinterpret_cast<const char*>(pubKey.data()), static_cast<int>(pubKey.size()), 0,
-        reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
+                newConn->SetSendCallback([](const NetworkEndpoint& recipient, const std::vector<uint8_t>& packet) {
+                    udpSocket->SendData(recipient, packet.data(), static_cast<uint32_t>(packet.size()));
+                    });
 
-    std::vector<uint8_t> recvBuf(4096);
-    sockaddr_in from{};
-    int fromLen = sizeof(from);
-    int received = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), 32, 0,
-        reinterpret_cast<sockaddr*>(&from), &fromLen);
+                // Immediately send local public key as handshake start
+                const auto& publicKey = newConn->GetLocalPublicKey();
+                newConn->SendUnencrypted(std::vector<uint8_t>(publicKey.begin(), publicKey.end()));
+            }
 
-    if (received == 32) {
-        KeyExchange::KeyBuffer serverKey;
-        std::memcpy(serverKey.data(), recvBuf.data(), 32);
-        client.PerformKeyExchange(serverKey, false);
-    }
-    else {
-        std::cerr << "[" << name << "] Failed key exchange.\n";
-        closesocket(sock);
-        WSACleanup();
-        return;
-    }
-
-    std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<int> sizeDist(1500, 3000);
-    std::uniform_int_distribution<int> sleepDist(100, 300);
-
-    while (true) {
-        size_t size = sizeDist(rng);
-        size_t msgCount = std::max<size_t>(1, size / 120);
-        auto payload = generateSimulatedPayload(msgCount);
-
-        client.SendReliable(payload, 0x01);
-
-        u_long mode = 1;
-        ioctlsocket(sock, FIONBIO, &mode);
-        int got = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), static_cast<int>(recvBuf.size()), 0, nullptr, nullptr);
-        if (got > 0) {
-            client.HandleRawPacket(std::vector<uint8_t>(recvBuf.begin(), recvBuf.begin() + got));
+            conn = g_connectionMap[key];
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleepDist(rng)));
+        // Forward raw UDP data to the Connection for decryption, decompression, etc.
+        std::vector<uint8_t> payload(data, data + size);
+        conn->HandleRawPacket(payload);
     }
 
-    closesocket(sock);
-    WSACleanup();
+    void OnSendCompleted(OverlappedIOContext* context, bool success, uint32_t bytesSent) override {
+        context->endpoint = NetworkEndpoint(context->remoteAddrNative);
+        const auto targetStr = context->endpoint.ToString();
+
+        if (success)
+            RF_NETWORK_DEBUG("Send completed: {} bytes to {}", bytesSent, targetStr);
+        else
+            RF_NETWORK_ERROR("Send failed to {}", targetStr);
+    }
+
+    void OnNetworkError(const std::string& errorMessage, int errorCode = 0) override {
+        RF_NETWORK_ERROR("Network error ({}): {}", errorCode, errorMessage);
+    }
+};
+
+//
+// Additional thread to simulate periodic updates for ACK/retransmissions & to log RTT samples.
+//
+void ReliabilityUpdateLoop() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // adjust tick rate as needed
+        auto now = std::chrono::steady_clock::now();
+
+        {
+            // Lock the connection map to iterate over current connections
+            std::scoped_lock lock(g_connectionMutex);
+            for (auto& [key, conn] : g_connectionMap) {
+                // Get a reference to the connection's reliable state.
+                // (Assumes you have a getter; adapt if necessary.)
+                auto& state = conn->GetReliableState();
+
+                // Process retransmissions
+                UDPReliabilityProtocol::ProcessRetransmissions(
+                    state, now,
+                    // sendFunc: re-sends packet via connection’s SendPacket() or similar callback.
+                    [conn](const std::vector<uint8_t>& packet) {
+                        conn->SendPacket(packet);
+                    }
+                );
+
+                // Check if it's time to send an ACK-only packet.
+                if (UDPReliabilityProtocol::ShouldSendAck(state, now)) {
+                    // Prepare ACK-only packet(s). Here packetType might be defined as your ACK type.
+                    constexpr uint8_t ACK_PACKET_TYPE = 6; // example type value for ACK-only packets
+                    auto ackPackets = UDPReliabilityProtocol::PrepareOutgoingPackets(
+                        state, nullptr, 0, ACK_PACKET_TYPE, state.nextNonce++
+                    );
+
+                    for (auto& pkt : ackPackets) {
+                        conn->SendPacket(pkt);
+                    }
+                }
+            }
+        }
+    }
 }
 
 int main() {
-    RiftForged::Logging::Logger::Init();  // ✅ Logger must be initialized first
+    Logger::Init();  // Initializes spdlog with console + file sinks
+    udpSocket = std::make_unique<UDPSocketAsync>();
+    RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
 
-    const int numClients = 50;
-    const std::string ip = "127.0.0.1";
-    const uint16_t port = 7777;
+    PacketHandler handler;
 
-    std::vector<std::thread> clientThreads;
-
-    for (int i = 0; i < numClients; ++i) {
-        std::ostringstream oss;
-        oss << "Client" << std::setw(2) << std::setfill('0') << i;
-        std::string clientName = oss.str();
-
-        clientThreads.emplace_back([clientName, ip, port]() {
-            RunClient(clientName, ip, port);
-            });
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (!udpSocket->Init("0.0.0.0", 7777, &handler)) {
+        RF_NETWORK_ERROR("Failed to initialize UDPSocketAsync.");
+        return 1;
     }
 
-    for (auto& t : clientThreads)
-        if (t.joinable()) t.join();
+    if (!udpSocket->Start()) {
+        RF_NETWORK_ERROR("Failed to start UDPSocketAsync.");
+        return 1;
+    }
 
+    RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
+
+    // Start the reliability update thread to process ACKs and retransmissions.
+    std::thread reliabilityThread(ReliabilityUpdateLoop);
+
+    // Main server loop remains simple.
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    reliabilityThread.join();
     return 0;
 }
