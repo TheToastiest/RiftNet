@@ -4,15 +4,15 @@
 
 namespace RiftForged::Networking {
 
-    struct ReliablePacketHeader {
+    /*struct ReliablePacketHeader {
         uint16_t sequenceNumber;
         uint16_t ackNumber;
         uint32_t ackBitfield;
         uint8_t packetType;
         uint64_t nonce;
-    };
+    };*/
 
-    struct ReliablePacket {
+   /* struct ReliablePacket {
         uint16_t sequenceNumber;
         uint8_t packetType;
         uint64_t nonce;
@@ -32,6 +32,6 @@ namespace RiftForged::Networking {
             : sequenceNumber(seq), packetType(type), nonce(nonceVal),
             data(std::move(payload)), timeSent(sentTime) {
         }
-    };
+    };*/
 
 }

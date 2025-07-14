@@ -4,13 +4,13 @@
 #include <vector>
 #include <list>
 #include <chrono>
-#include "ReliablePacketHeader.hpp"
+#include <mutex>
 #include "NetworkTypes.hpp"
 
 namespace RiftForged {
     namespace Networking {
 
-        // RTT and RTO Constants
+        // === RTT and RTO Constants ===
         constexpr float RTT_ALPHA = 0.125f;
         constexpr float RTT_BETA = 0.250f;
         constexpr float RTO_K = 4.0f;
@@ -20,11 +20,33 @@ namespace RiftForged {
         constexpr int MAX_PACKET_RETRIES = 10;
         constexpr uint16_t MAX_PAYLOAD_SIZE = 1200;
 
-        struct ReliableConnectionState {
-            // === Outgoing Sequence Management ===
-            SequenceNumber nextOutgoingSequenceNumber = 1;
+        struct ReliablePacket {
+            SequenceNumber sequenceNumber;
+            uint8_t packetType;
+            uint64_t nonce;
+            std::vector<uint8_t> data;
+            uint64_t timeSent;
+            int retries = 0;  // ✅ Add this line
 
-            // === Incoming Sequence Tracking ===
+            ReliablePacket() = default;
+
+            ReliablePacket(SequenceNumber seq, uint8_t type, uint64_t nonceVal,
+                const std::vector<uint8_t>& payload, uint64_t sentTime)
+                : sequenceNumber(seq), packetType(type), nonce(nonceVal),
+                data(payload), timeSent(sentTime), retries(0) {
+            }
+
+            ReliablePacket(SequenceNumber seq, uint8_t type, uint64_t nonceVal,
+                std::vector<uint8_t>&& payload, uint64_t sentTime)
+                : sequenceNumber(seq), packetType(type), nonce(nonceVal),
+                data(std::move(payload)), timeSent(sentTime), retries(0) {
+            }
+        };
+
+
+        struct ReliableConnectionState {
+            // === Sequence Management ===
+            SequenceNumber nextOutgoingSequenceNumber = 1;
             SequenceNumber highestReceivedSequenceNumber = 0;
             uint32_t receivedSequenceBitfield = 0;
 
@@ -34,41 +56,49 @@ namespace RiftForged {
             float retransmissionTimeout_ms = DEFAULT_INITIAL_RTT_MS * 2.0f;
             bool isFirstRTTSample = true;
 
-            // === Timers and Drop Detection ===
-            std::chrono::steady_clock::time_point lastPacketReceivedTime;
-            bool connectionDroppedByMaxRetries = false;
-
-            // === Nonce Management for SecureChannel ===
-            uint64_t nextNonce = 1;        // Used for sending
-            uint64_t lastUsedNonce = 1;    // Used for receiving
-
             // === Reliability Tracking ===
-            struct SentPacketInfo {
-                SequenceNumber sequenceNumber;
-                std::chrono::steady_clock::time_point timeSent;
-                std::vector<uint8_t> packetData;
-                int retries = 0;
-                bool isAckOnly = false;
+            std::list<ReliablePacket> unacknowledgedSentPackets;
 
-                SentPacketInfo(SequenceNumber seq, const std::vector<uint8_t>& data, bool ackOnlyFlag)
-                    : sequenceNumber(seq),
-                    timeSent(std::chrono::steady_clock::now()),
-                    packetData(data),
-                    retries(0),
-                    isAckOnly(ackOnlyFlag) {
-                }
-            };
+            // === Timing ===
+            std::chrono::steady_clock::time_point lastPacketReceivedTime;
+            std::chrono::steady_clock::time_point lastPacketSentTime;
 
-            std::list<SentPacketInfo> unacknowledgedSentPackets;
+            // === Flags & Status ===
+            bool connectionDroppedByMaxRetries = false;
+            bool hasPendingAckToSend = false;
+            bool isConnected = true;
 
-            // === Logic ===
+            // === Nonce Management ===
+            uint64_t nextNonce = 1;
+            uint64_t lastUsedNonce = 1;
+
+            // === Thread Safety ===
+            mutable std::mutex internalStateMutex;
+
+            // === Construction ===
+            ReliableConnectionState() {
+                lastPacketReceivedTime = std::chrono::steady_clock::now();
+                lastPacketSentTime = std::chrono::steady_clock::now();
+            }
+
+            // === Utility ===
             bool ShouldDropPacket(int retries) const {
                 return retries >= MAX_PACKET_RETRIES;
             }
 
-            ReliableConnectionState() {
-                lastPacketReceivedTime = std::chrono::steady_clock::now();
+            uint64_t GetCurrentTime() const {
+                return std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()
+                ).count();
             }
+        };
+
+        struct ReliablePacketHeader {
+            uint16_t sequenceNumber;
+            uint16_t ackNumber;
+            uint32_t ackBitfield;
+            uint8_t packetType;
+            uint64_t nonce;
         };
 
     } // namespace Networking

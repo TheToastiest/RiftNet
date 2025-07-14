@@ -1,6 +1,4 @@
-﻿// File: main.cpp
-
-#include <unordered_map>
+﻿#include <unordered_map>
 #include <memory>
 #include <csignal>
 #include <thread>
@@ -19,11 +17,8 @@
 #include "../include/core/NetworkEndpoint.hpp"
 #include "../include/platform/UDPSocketAsync.hpp"
 #include "../include/core/Connection.hpp"
-#include "../include/core/HandshakePacket.hpp"
-#include "../include/core/SecureChannel.hpp"
-#include "../include/core/PacketTypes.hpp"
-#include "RiftEncrypt.hpp"
-#include "riftcompress.hpp"
+#include "../include/core/UDPReliabilityProtocol.hpp"
+// ... other includes as needed
 
 using namespace RiftForged::Networking;
 using namespace RiftForged::Logging;
@@ -63,7 +58,7 @@ public:
             conn = g_connectionMap[key];
         }
 
-        // Forward raw UDP data to the Connection to decrypt, decompress, interpret, and possibly respond
+        // Forward raw UDP data to the Connection for decryption, decompression, etc.
         std::vector<uint8_t> payload(data, data + size);
         conn->HandleRawPacket(payload);
     }
@@ -83,29 +78,75 @@ public:
     }
 };
 
-//int main() {
-//    Logger::Init();  // Initializes spdlog with console + file sinks
-//    udpSocket = std::make_unique<UDPSocketAsync>();
-//    RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
 //
-//    PacketHandler handler;
+// Additional thread to simulate periodic updates for ACK/retransmissions & to log RTT samples.
 //
-//    if (!udpSocket->Init("0.0.0.0", 7777, &handler)) {
-//        RF_NETWORK_ERROR("Failed to initialize UDPSocketAsync.");
-//        return 1;
-//    }
-//
-//    if (!udpSocket->Start()) {
-//        RF_NETWORK_ERROR("Failed to start UDPSocketAsync.");
-//        return 1;
-//    }
-//
-//    RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
-//
-//    // Keep server running
-//    while (true) {
-//        std::this_thread::sleep_for(std::chrono::seconds(1));
-//    }
-//
-//    return 0;
-//}
+void ReliabilityUpdateLoop() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // adjust tick rate as needed
+        auto now = std::chrono::steady_clock::now();
+
+        {
+            // Lock the connection map to iterate over current connections
+            std::scoped_lock lock(g_connectionMutex);
+            for (auto& [key, conn] : g_connectionMap) {
+                // Get a reference to the connection's reliable state.
+                // (Assumes you have a getter; adapt if necessary.)
+                auto& state = conn->GetReliableState();
+
+                // Process retransmissions
+                UDPReliabilityProtocol::ProcessRetransmissions(
+                    state, now,
+                    // sendFunc: re-sends packet via connection’s SendPacket() or similar callback.
+                    [conn](const std::vector<uint8_t>& packet) {
+                        conn->SendPacket(packet);
+                    }
+                );
+
+                // Check if it's time to send an ACK-only packet.
+                if (UDPReliabilityProtocol::ShouldSendAck(state, now)) {
+                    // Prepare ACK-only packet(s). Here packetType might be defined as your ACK type.
+                    constexpr uint8_t ACK_PACKET_TYPE = 6; // example type value for ACK-only packets
+                    auto ackPackets = UDPReliabilityProtocol::PrepareOutgoingPackets(
+                        state, nullptr, 0, ACK_PACKET_TYPE, state.nextNonce++
+                    );
+
+                    for (auto& pkt : ackPackets) {
+                        conn->SendPacket(pkt);
+                    }
+                }
+            }
+        }
+    }
+}
+
+int main() {
+    Logger::Init();  // Initializes spdlog with console + file sinks
+    udpSocket = std::make_unique<UDPSocketAsync>();
+    RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
+
+    PacketHandler handler;
+
+    if (!udpSocket->Init("0.0.0.0", 7777, &handler)) {
+        RF_NETWORK_ERROR("Failed to initialize UDPSocketAsync.");
+        return 1;
+    }
+
+    if (!udpSocket->Start()) {
+        RF_NETWORK_ERROR("Failed to start UDPSocketAsync.");
+        return 1;
+    }
+
+    RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
+
+    // Start the reliability update thread to process ACKs and retransmissions.
+    std::thread reliabilityThread(ReliabilityUpdateLoop);
+
+    // Main server loop remains simple.
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    reliabilityThread.join();
+    return 0;
+}

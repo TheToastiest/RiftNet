@@ -7,20 +7,19 @@
 #include "NetworkEndpoint.hpp"
 #include "HandshakePacket.hpp"
 #include "ReliableConnectionState.hpp"
-//#include "ReliablePacketHeader.hpp"
 #include "UDPReliabilityProtocol.hpp"
 #include "PacketTypes.hpp"
-#include "../platform/OverlappedIOContext.hpp"
-#include "../platform/UDPSocketAsync.hpp"
-#include "ReliableTypes.hpp"
 #include "SecureChannel.hpp"
 #include "KeyExchange.hpp"
+#include "ReliableTypes.hpp"
 #include <riftcompress.hpp>
 #include <functional>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 namespace RiftForged::Networking {
+
 
     class Connection {
     public:
@@ -36,9 +35,12 @@ namespace RiftForged::Networking {
         void SendSecure(const std::vector<uint8_t>& payload);
         void SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetType);
         void SendRawPacket(const std::vector<uint8_t>& packet);
+        void SendPacket(const std::vector<uint8_t>& reliablePayload);
 
         const KeyExchange::KeyBuffer& GetLocalPublicKey() const;
         void PerformKeyExchange(const KeyExchange::KeyBuffer& clientPubKey, bool isServer);
+
+        ReliableConnectionState& GetReliableState();
 
         uint64_t GenerateUniqueNonce();
 
@@ -60,7 +62,6 @@ namespace RiftForged::Networking {
         uint64_t currentNonce = 0;
 
         SendCallback sendCallback;
-        std::unordered_map<uint16_t, ReliablePacket> reliabilityMap;
         uint64_t nonceRx = 1;
         uint64_t nonceTx = 1;
     };

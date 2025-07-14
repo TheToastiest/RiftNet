@@ -5,43 +5,37 @@
 #include <vector>
 #include <cstdint>
 #include <functional>
-#include <chrono>  // ✅ FIXED: Needed for steady_clock
+#include <chrono>
 
-namespace RiftForged {
-    namespace Networking {
+namespace RiftForged::Networking {
 
-        class UDPReliabilityProtocol {
-        public:
-            // Prepare outgoing packets (e.g., for future fragmentation)
-            static std::vector<std::vector<uint8_t>> PrepareOutgoingPackets(
-                ReliableConnectionState& state,
-                const uint8_t* payload,
-                uint32_t payloadSize,
-                uint8_t flags);
+    class UDPReliabilityProtocol {
+    public:
+        static std::vector<std::vector<uint8_t>> PrepareOutgoingPackets(
+            ReliableConnectionState& state,
+            const uint8_t* payload,
+            uint32_t payloadSize,
+            uint8_t packetType,
+            uint64_t nonce);
 
-            // Process incoming packet and return true if valid
-            static bool ProcessIncomingHeader(
-                ReliableConnectionState& state,
-                const ReliablePacketHeader& header,
-                const uint8_t* packetPayload,
-                uint16_t payloadLength,
-                std::vector<uint8_t>& outPayload);
+        static bool ProcessIncomingHeader(
+            ReliableConnectionState& state,
+            const ReliablePacketHeader& header,
+            const uint8_t* packetPayload,
+            uint16_t payloadLength,
+            std::vector<uint8_t>& outPayload);
 
-            // Whether to send an ACK packet
-            static bool ShouldSendAck(
-                ReliableConnectionState& state);
+        static bool ShouldSendAck(ReliableConnectionState& state,
+            std::chrono::steady_clock::time_point now);
 
-            // Handle retransmission logic
-            static void ProcessRetransmissions(
-                ReliableConnectionState& state,
-                const std::function<void(const std::vector<uint8_t>&)>& sendFunc);
+        static void ProcessRetransmissions(
+            ReliableConnectionState& state,
+            std::chrono::steady_clock::time_point now,
+            const std::function<void(const std::vector<uint8_t>&)>& sendFunc);
 
-            // Timeout check
-            static bool IsConnectionTimedOut(
-                const ReliableConnectionState& state,
-                const std::chrono::steady_clock::time_point& now,
-                int timeoutSeconds);
-        };
-
-    } // namespace Networking
-} // namespace RiftForged
+        static bool IsConnectionTimedOut(
+            const ReliableConnectionState& state,
+            const std::chrono::steady_clock::time_point& now,
+            int timeoutSeconds);
+    };
+}
