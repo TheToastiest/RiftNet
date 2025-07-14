@@ -33,7 +33,7 @@ namespace RiftForged::Networking {
         void HandleRawPacket(const std::vector<uint8_t>& raw);
         void SendUnencrypted(const std::vector<uint8_t>& payload);
         void SendSecure(const std::vector<uint8_t>& payload);
-        void SendReliable(const std::vector<uint8_t>& payload, PacketType packetType);
+        void SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetType);
         void SendRawPacket(const std::vector<uint8_t>& packet);
         void SendPacket(const std::vector<uint8_t>& reliablePayload);
 
@@ -66,7 +66,7 @@ namespace RiftForged::Networking {
         uint64_t nonceTx = 1;
 
         // ✅ RTT + RTO tracking
-        std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> rttTimestamps;
+        std::unordered_map<uint16_t, TimePoint> rttTimestamps;
         double srttMs = 200.0;
         double rttVarMs = 100.0;
         double rtoMs = 200.0;

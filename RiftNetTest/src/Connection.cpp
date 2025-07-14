@@ -1,9 +1,8 @@
 ﻿// File: Connection.cpp
 
-#include "../../include/core/Connection.hpp"
+#include "../include/Connection.hpp"
 #include <spdlog/spdlog.h>
 #include <cstring>
-#include <chrono>
 
 using namespace std::chrono;
 
@@ -92,7 +91,7 @@ namespace RiftForged::Networking {
         SendRawPacket(encrypted);
     }
 
-    void Connection::SendReliable(const std::vector<uint8_t>& payload, PacketType packetType) {
+    void Connection::SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetType) {
         if (!handshakeComplete) {
             RF_NETWORK_WARN("Reliable send before handshake with {}", endpoint.ToString());
             return;
@@ -101,7 +100,7 @@ namespace RiftForged::Networking {
         Compressor compressor(std::make_unique<LZ4Algorithm>());
         std::vector<uint8_t> compressed;
         try {
-            compressed = compressor.compress(payload);
+            compressed = compressor.compress(plainData);
         }
         catch (const std::exception& ex) {
             RF_NETWORK_ERROR("Compression failed for {}: {}", endpoint.ToString(), ex.what());
@@ -116,35 +115,30 @@ namespace RiftForged::Networking {
         }
 
         PlainPacketHeader header{};
-        header.packetType = static_cast<uint8_t>(packetType);
+        header.packetType = packetType;
         header.nonce = nonce;
         header.payloadSize = static_cast<uint32_t>(encrypted.size());
 
-        std::vector<uint8_t> headerBytes = header.Serialize();
-
         std::vector<uint8_t> fullPacket;
-        fullPacket.reserve(headerBytes.size() + encrypted.size());
-        fullPacket.insert(fullPacket.end(), headerBytes.begin(), headerBytes.end());
+        fullPacket.reserve(sizeof(header) + encrypted.size());
+        fullPacket.insert(fullPacket.end(), reinterpret_cast<uint8_t*>(&header),
+            reinterpret_cast<uint8_t*>(&header) + sizeof(header));
         fullPacket.insert(fullPacket.end(), encrypted.begin(), encrypted.end());
 
         // Record send time for RTT tracking
         auto sendTime = Clock::now();
         rttTimestamps[localSequence] = sendTime;
-        RF_NETWORK_DEBUG("Sending Reliable | Encrypted Size: {}, Header Size: {}, Total: {}",
-            encrypted.size(), headerBytes.size(), fullPacket.size());
 
         SendRawPacket(fullPacket);
         localSequence++;
     }
 
-
     void Connection::HandleRawPacket(const std::vector<uint8_t>& raw) {
         try {
-            // === 1. Handle Initial Key Exchange ===
             if (!handshakeComplete) {
                 if (raw.size() == 32) {
                     KeyExchange::KeyBuffer remotePub;
-                    std::copy(raw.begin(), raw.end(), remotePub.begin());
+                    std::memcpy(remotePub.data(), raw.data(), 32);
                     keyExchange.SetRemotePublicKey(remotePub);
 
                     KeyExchange::KeyBuffer rxKey, txKey;
@@ -169,32 +163,21 @@ namespace RiftForged::Networking {
                 }
             }
 
-            // === 2. Parse PlainPacketHeader ===
-            if (raw.size() < PlainPacketHeader::HeaderSize()) {
+            if (raw.size() < sizeof(PlainPacketHeader)) {
                 RF_NETWORK_WARN("Invalid packet size from {}", endpoint.ToString());
                 return;
             }
 
             PlainPacketHeader header{};
-            if (!PlainPacketHeader::Deserialize(raw.data(), raw.size(), header)) {
-                RF_NETWORK_WARN("Failed to parse header from {}", endpoint.ToString());
-                return;
-            }
+            std::memcpy(&header, raw.data(), sizeof(header));
 
-            if (header.payloadSize > 65535) {
-                RF_NETWORK_WARN("Unreasonable payload size: {}", header.payloadSize);
-                return;
-            }
-
-            if (raw.size() < PlainPacketHeader::HeaderSize() + header.payloadSize) {
+            if (raw.size() < sizeof(header) + header.payloadSize) {
                 RF_NETWORK_WARN("Payload truncated from {}", endpoint.ToString());
                 return;
             }
 
-            // === 3. Decrypt Encrypted Payload ===
-            const uint8_t* encryptedStart = raw.data() + PlainPacketHeader::HeaderSize();
-            std::vector<uint8_t> encryptedPayload(encryptedStart, encryptedStart + header.payloadSize);
-
+            std::vector<uint8_t> encryptedPayload(raw.begin() + sizeof(header),
+                raw.begin() + sizeof(header) + header.payloadSize);
             std::vector<uint8_t> decrypted;
             if (!secureChannel.Decrypt(encryptedPayload, decrypted, header.nonce)) {
                 RF_NETWORK_WARN("Decryption failed from {}", endpoint.ToString());
@@ -206,22 +189,17 @@ namespace RiftForged::Networking {
                 return;
             }
 
-            // === 4. Parse ReliablePacketHeader ===
             ReliablePacketHeader reliableHeader;
-            {
-                const uint8_t* p = decrypted.data();
-                reliableHeader.ackNumber = (p[0] << 8) | p[1];
-                reliableHeader.sequenceNumber = (p[2] << 8) | p[3];
-                reliableHeader.flags = p[4];
-            }
+            std::memcpy(&reliableHeader, decrypted.data(), sizeof(reliableHeader));
 
-            // === 5. RTT Tracking ===
+            // RTT Estimation if ACK matches our previously sent packet
             auto it = rttTimestamps.find(reliableHeader.ackNumber);
             if (it != rttTimestamps.end()) {
                 auto now = Clock::now();
                 auto rttSampleMs = duration_cast<milliseconds>(now - it->second).count();
                 rttTimestamps.erase(it);
 
+                // RFC 6298 RTT estimation
                 if (srttMs == INITIAL_RTO_MS) {
                     srttMs = rttSampleMs;
                     rttVarMs = rttSampleMs / 2;
@@ -234,7 +212,6 @@ namespace RiftForged::Networking {
                 RF_NETWORK_DEBUG("Updated RTT: {} ms | RTO: {} ms", srttMs, rtoMs);
             }
 
-            // === 6. Decompress Payload ===
             std::vector<uint8_t> compressedPayload(decrypted.begin() + sizeof(ReliablePacketHeader), decrypted.end());
 
             Compressor decompressor(std::make_unique<LZ4Algorithm>());
@@ -247,21 +224,17 @@ namespace RiftForged::Networking {
                 return;
             }
 
-            // === 7. Echo Test for Debugging ===
             std::string msg(decompressed.begin(), decompressed.end());
             RF_NETWORK_INFO("[{}] > {}", endpoint.ToString(), msg);
 
             std::string echoStr = "[ECHO] " + msg;
             std::vector<uint8_t> echoVec(echoStr.begin(), echoStr.end());
-            SendReliable(echoVec, PacketType::EchoTest);
+            SendReliable(echoVec, static_cast<uint8_t>(PacketType::EchoTest));
         }
         catch (const std::exception& ex) {
             RF_NETWORK_ERROR("Exception in HandleRawPacket: {}", ex.what());
         }
     }
-
-
-
 
     uint64_t GenerateSecureRandomNonce64() {
         uint64_t result;

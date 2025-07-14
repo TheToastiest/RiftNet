@@ -94,7 +94,7 @@ void RunClient(const std::string& name, const std::string& ip, uint16_t port) {
         size_t msgCount = std::max<size_t>(1, size / 120);
         auto payload = generateSimulatedPayload(msgCount);
 
-        client.SendReliable(payload, 0x01);
+        client.SendReliable(payload, PacketType::PlayerAction);
 
         u_long mode = 1;
         ioctlsocket(sock, FIONBIO, &mode);

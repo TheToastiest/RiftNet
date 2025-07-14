@@ -16,13 +16,44 @@ namespace RiftForged {
             // ... add more as needed
         };
 
-#pragma pack(push, 1)
         struct PlainPacketHeader {
-            uint8_t packetType;   // e.g., EchoTest
-            uint64_t nonce;       // Used for decryption
-            uint32_t payloadSize; // Optional: payload length
+            uint8_t packetType;      // 1 byte
+            uint64_t nonce;          // 8 bytes
+            uint32_t payloadSize;    // 4 bytes
+
+            static constexpr size_t HeaderSize() { return 13; }
+
+            std::vector<uint8_t> Serialize() const {
+                std::vector<uint8_t> buffer(HeaderSize());
+                buffer[0] = packetType;
+
+                for (int i = 0; i < 8; ++i)
+                    buffer[1 + i] = static_cast<uint8_t>((nonce >> (56 - i * 8)) & 0xFF);
+
+                for (int i = 0; i < 4; ++i)
+                    buffer[9 + i] = static_cast<uint8_t>((payloadSize >> (24 - i * 8)) & 0xFF);
+
+                return buffer;
+            }
+
+            static bool Deserialize(const uint8_t* data, size_t length, PlainPacketHeader& out) {
+                if (length < HeaderSize())
+                    return false;
+
+                out.packetType = data[0];
+
+                out.nonce = 0;
+                for (int i = 0; i < 8; ++i)
+                    out.nonce |= static_cast<uint64_t>(data[1 + i]) << (56 - i * 8);
+
+                out.payloadSize = 0;
+                for (int i = 0; i < 4; ++i)
+                    out.payloadSize |= static_cast<uint32_t>(data[9 + i]) << (24 - i * 8);
+
+                return true;
+            }
         };
-#pragma pack(pop)
+
 
     } // namespace Networking
 } // namespace RiftForged

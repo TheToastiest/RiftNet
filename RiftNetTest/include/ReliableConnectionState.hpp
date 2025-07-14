@@ -5,6 +5,7 @@
 #include <list>
 #include <chrono>
 #include <mutex>
+//#include "ReliablePacketHeader.hpp"
 #include "NetworkTypes.hpp"
 
 namespace RiftForged {
@@ -98,69 +99,8 @@ namespace RiftForged {
             uint16_t ackNumber;
             uint32_t ackBitfield;
             uint8_t packetType;
-            uint8_t flags;
             uint64_t nonce;
-
-            // === Returns the size in bytes of the header ===
-            static constexpr size_t HeaderSize() {
-                return sizeof(sequenceNumber) + sizeof(ackNumber) +
-                    sizeof(ackBitfield) + sizeof(packetType) + sizeof(nonce);
-            }
-
-            // === Serialize header into a byte buffer ===
-            static std::vector<uint8_t> Serialize(const ReliablePacketHeader& header) {
-                std::vector<uint8_t> out;
-                out.reserve(HeaderSize());
-
-                // 16-bit fields
-                out.push_back(static_cast<uint8_t>(header.sequenceNumber & 0xFF));
-                out.push_back(static_cast<uint8_t>((header.sequenceNumber >> 8) & 0xFF));
-
-                out.push_back(static_cast<uint8_t>(header.ackNumber & 0xFF));
-                out.push_back(static_cast<uint8_t>((header.ackNumber >> 8) & 0xFF));
-
-                // 32-bit bitfield
-                for (int i = 0; i < 4; ++i)
-                    out.push_back(static_cast<uint8_t>((header.ackBitfield >> (i * 8)) & 0xFF));
-
-                // 8-bit packet type
-                out.push_back(header.packetType);
-
-                // 64-bit nonce
-                for (int i = 0; i < 8; ++i)
-                    out.push_back(static_cast<uint8_t>((header.nonce >> (i * 8)) & 0xFF));
-
-                return out;
-            }
-
-            // === Deserialize header from a buffer ===
-            static bool Deserialize(const uint8_t* data, size_t length, ReliablePacketHeader& outHeader) {
-                if (length < HeaderSize())
-                    return false;
-
-                outHeader.sequenceNumber = static_cast<uint16_t>(data[0] | (data[1] << 8));
-                outHeader.ackNumber = static_cast<uint16_t>(data[2] | (data[3] << 8));
-
-                outHeader.ackBitfield = static_cast<uint32_t>(data[4]) |
-                    (static_cast<uint32_t>(data[5]) << 8) |
-                    (static_cast<uint32_t>(data[6]) << 16) |
-                    (static_cast<uint32_t>(data[7]) << 24);
-
-                outHeader.packetType = data[8];
-
-                outHeader.nonce = static_cast<uint64_t>(data[9]) |
-                    (static_cast<uint64_t>(data[10]) << 8) |
-                    (static_cast<uint64_t>(data[11]) << 16) |
-                    (static_cast<uint64_t>(data[12]) << 24) |
-                    (static_cast<uint64_t>(data[13]) << 32) |
-                    (static_cast<uint64_t>(data[14]) << 40) |
-                    (static_cast<uint64_t>(data[15]) << 48) |
-                    (static_cast<uint64_t>(data[16]) << 56);
-
-                return true;
-            }
         };
-
 
     } // namespace Networking
 } // namespace RiftForged
