@@ -24,5 +24,6 @@ namespace RiftForged {
         };
 #pragma pack(pop)
 
+
     } // namespace Networking
 } // namespace RiftForged

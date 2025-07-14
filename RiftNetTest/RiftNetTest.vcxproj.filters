@@ -27,6 +27,12 @@
     <ClCompile Include="src\UDPReliabilityProtocol.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\Logger.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Connection.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\KeyExchange.hpp">
@@ -45,6 +51,21 @@
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\NetworkTypes.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\RiftNet\include\core\Connection.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\NetworkEndpoint.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\PacketTypes.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\HandshakePacket.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Logger.hpp">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,29 +1,25 @@
 ﻿// File: RiftNetTest_MultiClient.cpp
 
 #include <iostream>
-#include <string>
-#include <vector>
-#include <unordered_map>
 #include <thread>
-#include <mutex>
+#include <vector>
 #include <chrono>
 #include <random>
-#include <sstream>
+#include <iomanip>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <atomic>
 
-#include "include/KeyExchange.hpp"
-#include "include/SecureChannel.hpp"
-#include "include/ReliableTypes.hpp"
-#include "include/ReliableConnectionState.hpp"
-#include "include/UDPReliabilityProtocol.hpp"
-#include "RiftCompress.hpp"
-#include "riftencrypt.hpp"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
+#include "include/Connection.hpp"
+#include "include/NetworkTypes.hpp"
+#include "include/Logger.hpp"
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace RiftForged::Networking;
+using RiftForged::Logging::Logger;
 
 std::vector<uint8_t> generateSimulatedPayload(size_t count) {
     std::ostringstream oss;
@@ -39,27 +35,16 @@ std::vector<uint8_t> generateSimulatedPayload(size_t count) {
     return std::vector<uint8_t>(result.begin(), result.end());
 }
 
-struct PeerConnectionState {
-    SecureChannel secureChannel;
-    Compressor compressor = Compressor(std::make_unique<LZ4Algorithm>());
-    UDPReliabilityProtocol reliability;
-    ReliableConnectionState connectionState;
-    uint64_t txNonce = 1;
-    uint64_t lastRxNonce = 0;
-};
-
-void RunClient(const std::string& peerName, const std::string& ip, uint16_t port) {
+void RunClient(const std::string& name, const std::string& ip, uint16_t port) {
     WSADATA wsaData;
-    SOCKET sock = INVALID_SOCKET;
-
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "[" << peerName << "] WSAStartup failed.\n";
+        std::cerr << "[" << name << "] WSAStartup failed.\n";
         return;
     }
 
-    sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock == INVALID_SOCKET) {
-        std::cerr << "[" << peerName << "] Socket creation failed.\n";
+        std::cerr << "[" << name << "] Socket creation failed.\n";
         WSACleanup();
         return;
     }
@@ -69,41 +54,36 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
     serverAddr.sin_port = htons(port);
     inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr);
 
-    // Key exchange
-    KeyExchange ke;
-    const auto& pubKey = ke.GetLocalPublicKey();
+    NetworkEndpoint serverEndpoint(ip, port);
+    Connection client(serverEndpoint);
 
-    sendto(sock, reinterpret_cast<const char*>(pubKey.data()), pubKey.size(), 0,
+    client.SetSendCallback([&](const NetworkEndpoint&, const std::vector<uint8_t>& data) {
+        sendto(sock, reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), 0,
+            reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
+        });
+
+    // Key exchange
+    const auto& pubKey = client.GetLocalPublicKey();
+    sendto(sock, reinterpret_cast<const char*>(pubKey.data()), static_cast<int>(pubKey.size()), 0,
         reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-    std::cout << "[" << peerName << "] Sent public key.\n";
 
     std::vector<uint8_t> recvBuf(4096);
     sockaddr_in from{};
     int fromLen = sizeof(from);
     int received = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), 32, 0,
         reinterpret_cast<sockaddr*>(&from), &fromLen);
-    if (received != 32) {
-        std::cerr << "[" << peerName << "] Failed to receive server key.\n";
+
+    if (received == 32) {
+        KeyExchange::KeyBuffer serverKey;
+        std::memcpy(serverKey.data(), recvBuf.data(), 32);
+        client.PerformKeyExchange(serverKey, false);
+    }
+    else {
+        std::cerr << "[" << name << "] Failed key exchange.\n";
         closesocket(sock);
         WSACleanup();
         return;
     }
-
-    KeyExchange::KeyBuffer serverKey;
-    std::memcpy(serverKey.data(), recvBuf.data(), 32);
-    ke.SetRemotePublicKey(serverKey);
-
-    KeyExchange::KeyBuffer rxKey, txKey;
-    if (!ke.DeriveSharedKey(false, rxKey, txKey)) {
-        std::cerr << "[" << peerName << "] Shared key failure.\n";
-        closesocket(sock);
-        WSACleanup();
-        return;
-    }
-
-    PeerConnectionState state;
-    state.secureChannel.Initialize(rxKey, txKey);
-    std::cout << "[" << peerName << "] Secure channel ready.\n";
 
     std::mt19937 rng(std::random_device{}());
     std::uniform_int_distribution<int> sizeDist(1500, 3000);
@@ -113,56 +93,15 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
         size_t size = sizeDist(rng);
         size_t msgCount = std::max<size_t>(1, size / 120);
         auto payload = generateSimulatedPayload(msgCount);
-        auto compressed = state.compressor.compress(payload);
 
-        auto packets = state.reliability.PrepareOutgoingPackets(
-            state.connectionState,
-            compressed.data(),
-            static_cast<uint32_t>(compressed.size()),
-            0x01  // Reliable flag
-        );
+        client.SendReliable(payload, 0x01);
 
-        for (auto& pkt : packets) {
-            auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
-            sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
-                reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-            std::cout << "[" << peerName << "] Sent encrypted reliable packet.\n";
-        }
-
-        // Receive echo
         u_long mode = 1;
         ioctlsocket(sock, FIONBIO, &mode);
-        int got = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), recvBuf.size(), 0,
-            nullptr, nullptr);
+        int got = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), static_cast<int>(recvBuf.size()), 0, nullptr, nullptr);
         if (got > 0) {
-            std::vector<uint8_t> decrypted;
-            for (uint64_t n = state.lastRxNonce + 1; n <= state.lastRxNonce + 5; ++n) {
-                if (state.secureChannel.Decrypt(std::vector<uint8_t>(recvBuf.begin(), recvBuf.begin() + got), decrypted, n)) {
-                    state.lastRxNonce = n;
-                    if (decrypted.size() < sizeof(ReliablePacketHeader)) continue;
-
-                    ReliablePacketHeader recvHeader;
-                    std::memcpy(&recvHeader, decrypted.data(), sizeof(ReliablePacketHeader));
-                    std::vector<uint8_t> compressedData(decrypted.begin() + sizeof(ReliablePacketHeader), decrypted.end());
-
-                    std::vector<uint8_t> outPayload;
-                    if (state.reliability.ProcessIncomingHeader(state.connectionState, recvHeader, compressedData.data(), static_cast<uint16_t>(compressedData.size()), outPayload)) {
-                        auto plain = state.compressor.decompress(outPayload);
-                        std::string msg(plain.begin(), plain.end());
-                        std::cout << "[" << peerName << "] Echo (type " << (int)recvHeader.packetType << ", nonce " << recvHeader.nonce << "):\n" << msg << "\n";
-                    }
-                    break;
-                }
-            }
+            client.HandleRawPacket(std::vector<uint8_t>(recvBuf.begin(), recvBuf.begin() + got));
         }
-
-        // Retransmit
-        state.reliability.ProcessRetransmissions(state.connectionState, [&](const std::vector<uint8_t>& pkt) {
-            auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
-            sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
-                reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-            std::cout << "[" << peerName << "] Retransmitted packet.\n";
-            });
 
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepDist(rng)));
     }
@@ -172,7 +111,9 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
 }
 
 int main() {
-    const int numClients = 100;
+    RiftForged::Logging::Logger::Init();  // ✅ Logger must be initialized first
+
+    const int numClients = 50;
     const std::string ip = "127.0.0.1";
     const uint16_t port = 7777;
 
@@ -181,20 +122,17 @@ int main() {
     for (int i = 0; i < numClients; ++i) {
         std::ostringstream oss;
         oss << "Client" << std::setw(2) << std::setfill('0') << i;
-        std::string name = oss.str();  // extract to copyable std::string
+        std::string clientName = oss.str();
 
-        clientThreads.emplace_back([name, ip, port]() {
-            RunClient(name, ip, port);
+        clientThreads.emplace_back([clientName, ip, port]() {
+            RunClient(clientName, ip, port);
             });
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // optional delay
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-
-    // Optional: join all threads (if you ever plan on clean exit)
-    for (auto& t : clientThreads) {
+    for (auto& t : clientThreads)
         if (t.joinable()) t.join();
-    }
 
     return 0;
 }

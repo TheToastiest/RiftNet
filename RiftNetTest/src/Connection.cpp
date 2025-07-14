@@ -1,6 +1,6 @@
 ﻿// File: Connection.cpp
 
-#include "../../include/core/Connection.hpp"
+#include "../include/Connection.hpp"
 #include <spdlog/spdlog.h>
 #include <cstring>
 
