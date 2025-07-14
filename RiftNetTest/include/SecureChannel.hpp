@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include "riftencrypt.hpp"
+#include <riftencrypt.hpp>
 
 namespace RiftForged::Networking {
 

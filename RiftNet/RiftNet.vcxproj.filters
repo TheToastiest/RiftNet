@@ -139,8 +139,5 @@
     <None Include="..\Docs\LICENSE.md">
       <Filter>Docs</Filter>
     </None>
-    <None Include="..\Docs\RiftNet_Indie_License_v1.0.pdf">
-      <Filter>Docs</Filter>
-    </None>
   </ItemGroup>
 </Project>

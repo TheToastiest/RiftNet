@@ -123,10 +123,16 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\Users\brinn\source\repos\RiftEncrypt\RiftEncrypt\include;C:\Users\brinn\source\repos\RiftCompress\RiftCompress\include;C:\Program Files\Git\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>C:\Users\brinn\source\repos\RiftCompress\x64\Release;C:\Users\brinn\source\repos\RiftEncrypt\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>RiftCompress.lib;RiftEncrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -169,7 +175,6 @@
     <None Include="..\Docs\LICENSE.md" />
     <None Include="..\Docs\PHILOSOPHY.md" />
     <None Include="..\Docs\README.md" />
-    <None Include="..\Docs\RiftNet_Indie_License_v1.0.pdf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
