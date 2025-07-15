@@ -14,11 +14,11 @@
 #include <ws2tcpip.h>
 #include <atomic>
 
-#include "include/KeyExchange.hpp"
-#include "include/SecureChannel.hpp"
-#include "include/ReliableTypes.hpp"
-#include "include/ReliableConnectionState.hpp"
-#include "include/UDPReliabilityProtocol.hpp"
+#include "../RiftNet/include/core/KeyExchange.hpp"
+#include "../RiftNet/include/core/SecureChannel.hpp"
+#include "../RiftNet/include/core/ReliableTypes.hpp"
+#include "../RiftNet/include/core/ReliableConnectionState.hpp"
+#include "../RiftNet/include/core/UDPReliabilityProtocol.hpp"
 #include "RiftCompress.hpp"
 #include "riftencrypt.hpp"
 
