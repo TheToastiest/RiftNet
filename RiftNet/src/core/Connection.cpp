@@ -31,6 +31,11 @@ namespace RiftForged::Networking {
         return reliabilityState;
     }
 
+    bool Connection::IsConnected() const {
+        return reliabilityState.isConnected;
+    }
+
+
     void Connection::SendUnencrypted(const std::vector<uint8_t>& data) {
         if (sendCallback) {
             sendCallback(endpoint, data);

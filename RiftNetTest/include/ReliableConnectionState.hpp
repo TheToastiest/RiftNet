@@ -5,7 +5,6 @@
 #include <list>
 #include <chrono>
 #include <mutex>
-//#include "ReliablePacketHeader.hpp"
 #include "NetworkTypes.hpp"
 
 namespace RiftForged {

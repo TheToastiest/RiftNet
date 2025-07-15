@@ -1,6 +1,7 @@
 ﻿// File: RiftNetTest_MultiClient.cpp
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -46,6 +47,13 @@ struct PeerConnectionState {
     ReliableConnectionState connectionState;
     uint64_t txNonce = 1;
     uint64_t lastRxNonce = 0;
+
+    // For RTT stats
+    float lastRTT = 0;
+    float lastRTO = 0;
+    size_t bytesSent = 0;
+    size_t packetsSent = 0;
+    size_t iterationCount = 0;
 };
 
 void RunClient(const std::string& peerName, const std::string& ip, uint16_t port) {
@@ -110,6 +118,8 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
     std::uniform_int_distribution<int> sleepDist(100, 300);
 
     while (true) {
+        ++state.iterationCount;
+
         size_t size = sizeDist(rng);
         size_t msgCount = std::max<size_t>(1, size / 120);
         auto payload = generateSimulatedPayload(msgCount);
@@ -119,26 +129,34 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
             state.connectionState,
             compressed.data(),
             static_cast<uint32_t>(compressed.size()),
-            0x01  // Reliable flag
+            0x01, // Reliable flag
+            state.txNonce
         );
 
         for (auto& pkt : packets) {
             auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
             sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
                 reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-            std::cout << "[" << peerName << "] Sent encrypted reliable packet.\n";
+            state.bytesSent += encrypted.size();
+            ++state.packetsSent;
         }
 
-        // Receive echo
+        // Receive
         u_long mode = 1;
         ioctlsocket(sock, FIONBIO, &mode);
         int got = recvfrom(sock, reinterpret_cast<char*>(recvBuf.data()), recvBuf.size(), 0,
             nullptr, nullptr);
         if (got > 0) {
+            std::cout << "[" << peerName << "] Received " << got << " bytes\n";
+
             std::vector<uint8_t> decrypted;
+            bool anyDecrypted = false;
+
             for (uint64_t n = state.lastRxNonce + 1; n <= state.lastRxNonce + 5; ++n) {
                 if (state.secureChannel.Decrypt(std::vector<uint8_t>(recvBuf.begin(), recvBuf.begin() + got), decrypted, n)) {
                     state.lastRxNonce = n;
+                    anyDecrypted = true;
+
                     if (decrypted.size() < sizeof(ReliablePacketHeader)) continue;
 
                     ReliablePacketHeader recvHeader;
@@ -149,20 +167,38 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
                     if (state.reliability.ProcessIncomingHeader(state.connectionState, recvHeader, compressedData.data(), static_cast<uint16_t>(compressedData.size()), outPayload)) {
                         auto plain = state.compressor.decompress(outPayload);
                         std::string msg(plain.begin(), plain.end());
-                        std::cout << "[" << peerName << "] Echo (type " << (int)recvHeader.packetType << ", nonce " << recvHeader.nonce << "):\n" << msg << "\n";
+
+                        std::cout << "[" << peerName << "] Echo (type " << (int)recvHeader.packetType
+                            << ", nonce " << recvHeader.nonce << "):\n" << msg << "\n";
+
+                        state.lastRTT = state.connectionState.smoothedRTT_ms;
+                        state.lastRTO = state.connectionState.retransmissionTimeout_ms;
                     }
                     break;
                 }
             }
+
+            if (!anyDecrypted) {
+                std::cout << "[" << peerName << "] Warning: Unable to decrypt received packet\n";
+            }
         }
 
         // Retransmit
-        state.reliability.ProcessRetransmissions(state.connectionState, [&](const std::vector<uint8_t>& pkt) {
-            auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
-            sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
-                reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-            std::cout << "[" << peerName << "] Retransmitted packet.\n";
+        UDPReliabilityProtocol::ProcessRetransmissions(
+            state.connectionState,
+            std::chrono::steady_clock::now(),
+            [&](const std::vector<uint8_t>& pkt) {
+                auto encrypted = state.secureChannel.Encrypt(pkt, state.txNonce++);
+                sendto(sock, reinterpret_cast<const char*>(encrypted.data()), encrypted.size(), 0,
+                    reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
+                std::cout << "[" << peerName << "] Retransmitted packet.\n";
             });
+
+        // Log stats every 50 iterations
+        if (state.iterationCount % 50 == 0) {
+            std::cout << "[" << peerName << "] RTT: " << state.lastRTT << " ms | RTO: " << state.lastRTO
+                << " ms | Sent: " << state.packetsSent << " pkts, " << state.bytesSent << " bytes\n";
+        }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepDist(rng)));
     }
@@ -172,7 +208,7 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
 }
 
 int main() {
-    const int numClients = 100;
+    const int numClients = 50; // scale up or down as needed
     const std::string ip = "127.0.0.1";
     const uint16_t port = 7777;
 
@@ -181,17 +217,15 @@ int main() {
     for (int i = 0; i < numClients; ++i) {
         std::ostringstream oss;
         oss << "Client" << std::setw(2) << std::setfill('0') << i;
-        std::string name = oss.str();  // extract to copyable std::string
+        std::string name = oss.str();
 
         clientThreads.emplace_back([name, ip, port]() {
             RunClient(name, ip, port);
             });
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // optional delay
+        std::this_thread::sleep_for(std::chrono::milliseconds(150)); // slight stagger
     }
 
-
-    // Optional: join all threads (if you ever plan on clean exit)
     for (auto& t : clientThreads) {
         if (t.joinable()) t.join();
     }

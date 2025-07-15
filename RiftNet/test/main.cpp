@@ -1,4 +1,6 @@
-﻿#include <unordered_map>
+﻿// File: RiftNetTest_Server.cpp
+
+#include <unordered_map>
 #include <memory>
 #include <csignal>
 #include <thread>
@@ -18,13 +20,14 @@
 #include "../include/platform/UDPSocketAsync.hpp"
 #include "../include/core/Connection.hpp"
 #include "../include/core/UDPReliabilityProtocol.hpp"
-// ... other includes as needed
 
 using namespace RiftForged::Networking;
 using namespace RiftForged::Logging;
 
 static std::unordered_map<std::string, std::shared_ptr<Connection>> g_connectionMap;
+static std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_connectionTimestamps;
 static std::mutex g_connectionMutex;
+static std::atomic<bool> g_running = true;
 
 std::unique_ptr<UDPSocketAsync> udpSocket;
 
@@ -33,7 +36,8 @@ public:
     void OnRawDataReceived(const NetworkEndpoint& sender,
         const uint8_t* data,
         uint32_t size,
-        OverlappedIOContext* context) override {
+        OverlappedIOContext* context) override
+    {
         std::string key = sender.ToString();
         std::shared_ptr<Connection> conn;
 
@@ -43,6 +47,7 @@ public:
             if (g_connectionMap.count(key) == 0) {
                 auto newConn = std::make_shared<Connection>(sender);
                 g_connectionMap[key] = newConn;
+                g_connectionTimestamps[key] = std::chrono::steady_clock::now();
 
                 RF_NETWORK_INFO("New connection created for {}", key);
 
@@ -58,7 +63,6 @@ public:
             conn = g_connectionMap[key];
         }
 
-        // Forward raw UDP data to the Connection for decryption, decompression, etc.
         std::vector<uint8_t> payload(data, data + size);
         conn->HandleRawPacket(payload);
     }
@@ -78,52 +82,62 @@ public:
     }
 };
 
-//
-// Additional thread to simulate periodic updates for ACK/retransmissions & to log RTT samples.
-//
+// Signal handler to allow graceful shutdown
+void SignalHandler(int) {
+    g_running = false;
+    RF_NETWORK_INFO("Shutdown signal received.");
+}
+
 void ReliabilityUpdateLoop() {
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // adjust tick rate as needed
+    uint64_t tickCounter = 0;
+
+    while (g_running) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         auto now = std::chrono::steady_clock::now();
 
-        {
-            // Lock the connection map to iterate over current connections
-            std::scoped_lock lock(g_connectionMutex);
-            for (auto& [key, conn] : g_connectionMap) {
-                // Get a reference to the connection's reliable state.
-                // (Assumes you have a getter; adapt if necessary.)
-                auto& state = conn->GetReliableState();
+        std::scoped_lock lock(g_connectionMutex);
+        for (auto& [key, conn] : g_connectionMap) {
+            if (!conn || !conn->IsConnected()) continue;
 
-                // Process retransmissions
-                UDPReliabilityProtocol::ProcessRetransmissions(
-                    state, now,
-                    // sendFunc: re-sends packet via connection’s SendPacket() or similar callback.
-                    [conn](const std::vector<uint8_t>& packet) {
-                        conn->SendPacket(packet);
-                    }
+            auto& state = conn->GetReliableState();
+
+            // Handle retransmissions
+            UDPReliabilityProtocol::ProcessRetransmissions(
+                state, now,
+                [conn](const std::vector<uint8_t>& pkt) {
+                    conn->SendPacket(pkt);
+                });
+
+            // Send ACK-only if needed
+            if (UDPReliabilityProtocol::ShouldSendAck(state, now)) {
+                constexpr uint8_t ACK_PACKET_TYPE = 6;
+                auto ackPackets = UDPReliabilityProtocol::PrepareOutgoingPackets(
+                    state, nullptr, 0, ACK_PACKET_TYPE, state.nextNonce++
                 );
 
-                // Check if it's time to send an ACK-only packet.
-                if (UDPReliabilityProtocol::ShouldSendAck(state, now)) {
-                    // Prepare ACK-only packet(s). Here packetType might be defined as your ACK type.
-                    constexpr uint8_t ACK_PACKET_TYPE = 6; // example type value for ACK-only packets
-                    auto ackPackets = UDPReliabilityProtocol::PrepareOutgoingPackets(
-                        state, nullptr, 0, ACK_PACKET_TYPE, state.nextNonce++
-                    );
-
-                    for (auto& pkt : ackPackets) {
-                        conn->SendPacket(pkt);
-                    }
+                for (auto& pkt : ackPackets) {
+                    conn->SendPacket(pkt);
                 }
+            }
+
+            // Log stats every 5 seconds (~50 ticks at 100ms)
+            if (++tickCounter % 50 == 0) {
+                float rtt = state.smoothedRTT_ms;
+                float rto = state.retransmissionTimeout_ms;
+                RF_NETWORK_INFO("[{}] RTT: {:.2f} ms | RTO: {:.2f} ms | PendingAcks: {}",
+                    key, rtt, rto, state.unacknowledgedSentPackets.size());
             }
         }
     }
 }
 
 int main() {
-    Logger::Init();  // Initializes spdlog with console + file sinks
+    Logger::Init();
     udpSocket = std::make_unique<UDPSocketAsync>();
-    RF_NETWORK_INFO("=== RiftNet UDP Secure Server Test ===");
+    RF_NETWORK_INFO("=== RiftNet UDP Secure Server ===");
+
+    // Set up Ctrl+C handler
+    std::signal(SIGINT, SignalHandler);
 
     PacketHandler handler;
 
@@ -137,16 +151,17 @@ int main() {
         return 1;
     }
 
-    RF_NETWORK_INFO("Listening on port 7777. Press Ctrl+C to stop.");
+    RF_NETWORK_INFO("Server listening on port 7777. Press Ctrl+C to stop.");
 
-    // Start the reliability update thread to process ACKs and retransmissions.
     std::thread reliabilityThread(ReliabilityUpdateLoop);
 
-    // Main server loop remains simple.
-    while (true) {
+    while (g_running) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     reliabilityThread.join();
+    udpSocket->Stop();
+
+    RF_NETWORK_INFO("Server shut down cleanly.");
     return 0;
 }

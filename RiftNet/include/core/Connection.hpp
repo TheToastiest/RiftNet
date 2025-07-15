@@ -36,6 +36,7 @@ namespace RiftForged::Networking {
         void SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetType);
         void SendRawPacket(const std::vector<uint8_t>& packet);
         void SendPacket(const std::vector<uint8_t>& reliablePayload);
+        bool IsConnected() const;
 
         const KeyExchange::KeyBuffer& GetLocalPublicKey() const;
         void PerformKeyExchange(const KeyExchange::KeyBuffer& clientPubKey, bool isServer);
@@ -52,6 +53,7 @@ namespace RiftForged::Networking {
         ReliableConnectionState reliabilityState;
 
         SecureChannel secureChannel;
+
         std::unique_ptr<Encryptor> encryptor;
         std::unique_ptr<Compressor> compressor;
         KeyExchange keyExchange;
