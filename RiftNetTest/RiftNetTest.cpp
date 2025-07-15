@@ -208,7 +208,7 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
 }
 
 int main() {
-    const int numClients = 50; // scale up or down as needed
+    const int numClients = 500000; // scale up or down as needed
     const std::string ip = "127.0.0.1";
     const uint16_t port = 7777;
 
@@ -223,7 +223,9 @@ int main() {
             RunClient(name, ip, port);
             });
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(150)); // slight stagger
+        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // slight stagger
+        //if (i % 16384 == 0) std::this_thread::sleep_for(std::chrono::seconds(10));
+
     }
 
     for (auto& t : clientThreads) {
