@@ -148,7 +148,6 @@
   <ItemGroup>
     <ClInclude Include="include\core\Connection.hpp" />
     <ClInclude Include="include\core\HandshakePacket.hpp" />
-    <ClInclude Include="include\core\IConnectionManager.hpp" />
     <ClInclude Include="include\core\INetEventListener.hpp" />
     <ClInclude Include="include\core\INetworkIO.hpp" />
     <ClInclude Include="include\core\INetworkIOEvents.hpp" />

@@ -116,9 +116,6 @@
     <ClInclude Include="include\core\SecureChannel.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\IConnectionManager.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
     <ClInclude Include="include\core\PacketTypes.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
