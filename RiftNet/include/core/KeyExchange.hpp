@@ -17,14 +17,6 @@ namespace RiftForged::Networking {
 
         const KeyBuffer& GetLocalPublicKey() const;
         void SetRemotePublicKey(const KeyBuffer& remotePubKey);
-
-        /**
-         * @brief Derives symmetric keys for encryption and decryption.
-         * @param isServer True if this endpoint is the server.
-         * @param outRxKey Receive key (for decryption).
-         * @param outTxKey Transmit key (for encryption).
-         * @return True on success.
-         */
         bool DeriveSharedKey(bool isServer, KeyBuffer& outRxKey, KeyBuffer& outTxKey);
 
     private:
