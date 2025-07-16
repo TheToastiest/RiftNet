@@ -13,7 +13,6 @@ namespace RiftForged {
             GameState = 0x04,
             Heartbeat = 0x05,
             EchoTest = 0x06,
-            // ... add more as needed
         };
 
     } // namespace Networking
