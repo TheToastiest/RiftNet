@@ -55,7 +55,6 @@ public:
                     udpSocket->SendData(recipient, packet.data(), static_cast<uint32_t>(packet.size()));
                     });
 
-                // Immediately send local public key as handshake start
                 const auto& publicKey = newConn->GetLocalPublicKey();
                 newConn->SendUnencrypted(std::vector<uint8_t>(publicKey.begin(), publicKey.end()));
             }
@@ -82,7 +81,6 @@ public:
     }
 };
 
-// Signal handler to allow graceful shutdown
 void SignalHandler(int) {
     g_running = false;
     RF_NETWORK_INFO("Shutdown signal received.");
@@ -101,14 +99,12 @@ void ReliabilityUpdateLoop() {
 
             auto& state = conn->GetReliableState();
 
-            // Handle retransmissions
             UDPReliabilityProtocol::ProcessRetransmissions(
                 state, now,
                 [conn](const std::vector<uint8_t>& pkt) {
                     conn->SendPacket(pkt);
                 });
 
-            // Send ACK-only if needed
             if (UDPReliabilityProtocol::ShouldSendAck(state, now)) {
                 constexpr uint8_t ACK_PACKET_TYPE = 6;
                 auto ackPackets = UDPReliabilityProtocol::PrepareOutgoingPackets(
@@ -120,7 +116,6 @@ void ReliabilityUpdateLoop() {
                 }
             }
 
-            // Log stats every 5 seconds (~50 ticks at 100ms)
             if (++tickCounter % 50 == 0) {
                 float rtt = state.smoothedRTT_ms;
                 float rto = state.retransmissionTimeout_ms;
@@ -136,7 +131,6 @@ int main() {
     udpSocket = std::make_unique<UDPSocketAsync>();
     RF_NETWORK_INFO("=== RiftNet UDP Secure Server ===");
 
-    // Set up Ctrl+C handler
     std::signal(SIGINT, SignalHandler);
 
     PacketHandler handler;
