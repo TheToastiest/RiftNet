@@ -5,14 +5,13 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <Winsock2.h> // For OVERLAPPED, WSABUF, sockaddr_in
-#include <vector>     // For std::vector
-#include <cstring>    // For ZeroMemory
+#include <Winsock2.h> 
+#include <vector>   
+#include <cstring>   
 #include "../core/NetworkEndpoint.hpp"
 
-// It's good practice to define constants used by these types here,
-// or make them configurable if they are not globally fixed.
-const int DEFAULT_IOCP_UDP_BUFFER_SIZE = 4096; // Renamed slightly for clarity if it's specific to this context
+
+const int DEFAULT_IOCP_UDP_BUFFER_SIZE = 4096; 
 
 namespace RiftForged {
     namespace Networking {
@@ -27,7 +26,7 @@ namespace RiftForged {
             OVERLAPPED      overlapped;
             IOOperationType operationType;
             WSABUF          wsaBuf;
-            std::vector<char> buffer; // char is fine for raw buffer
+            std::vector<char> buffer; 
             sockaddr_in     remoteAddrNative;
             int             remoteAddrNativeLen;
             NetworkEndpoint endpoint;
