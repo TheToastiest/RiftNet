@@ -39,9 +39,6 @@
     <ClCompile Include="src\core\RiftNetEngine.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="test\main.cpp">
-      <Filter>test</Filter>
-    </ClCompile>
     <ClCompile Include="src\platform\UDPSocketAsync.cpp">
       <Filter>src\core\platform</Filter>
     </ClCompile>

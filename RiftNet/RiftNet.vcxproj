@@ -144,7 +144,6 @@
     <ClCompile Include="src\core\SecureChannel.cpp" />
     <ClCompile Include="src\core\UDPReliabilityProtocol.cpp" />
     <ClCompile Include="src\platform\UDPSocketAsync.cpp" />
-    <ClCompile Include="test\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\core\Connection.hpp" />

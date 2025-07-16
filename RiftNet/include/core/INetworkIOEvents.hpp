@@ -21,8 +21,7 @@ namespace RiftForged {
             virtual void OnSendCompleted(OverlappedIOContext* context,
                 bool success,
                 uint32_t bytesSent) = 0;
-ram errorMessage A description of the error.
-             */
+
             virtual void OnNetworkError(const std::string& errorMessage, int errorCode = 0) = 0;
 
             // virtual void OnNetworkIOShutdown() = 0;
