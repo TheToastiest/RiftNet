@@ -8,8 +8,7 @@
 #endif
 #include <Winsock2.h>  
 #include <Ws2tcpip.h>  
-#pragma comment(lib, "Ws2_32.lib") // Link with Winsock library
-
+#pragma comment(lib, "Ws2_32.lib") 
 
 
 namespace RiftForged {
@@ -30,7 +29,6 @@ namespace RiftForged {
                 port = ntohs(addr.sin_port);
             }
 
-            // For logging or map keys
             std::string ToString() const {
                 return ipAddress + ":" + std::to_string(port);
             }
