@@ -6,14 +6,11 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <Winsock2.h>   // For sockaddr_in, AF_INET
-#include <Ws2tcpip.h>   // For inet_ntop, INET_ADDRSTRLEN
+#include <Winsock2.h>  
+#include <Ws2tcpip.h>  
 #pragma comment(lib, "Ws2_32.lib") // Link with Winsock library
 
 
-// Forward declare a system-specific address structure if needed, or use general fields
-// For Winsock, this would eventually wrap something like sockaddr_in.
-// For simplicity here, we'll store IP as string and port.
 
 namespace RiftForged {
     namespace Networking {
@@ -21,7 +18,6 @@ namespace RiftForged {
         struct NetworkEndpoint {
             std::string ipAddress;
             uint16_t port;
-            // You might also store a unique ID for this endpoint if assigned by ClientManager
 
             NetworkEndpoint(const std::string& ip = "", uint16_t p = 0)
                 : ipAddress(ip), port(p) {
@@ -46,7 +42,6 @@ namespace RiftForged {
                 if (ipAddress > other.ipAddress) {
                     return false;
                 }
-                // IP addresses are equal, compare ports
                 return port < other.port;
             }
 
@@ -58,12 +53,9 @@ namespace RiftForged {
                 return addr;
             }
 
-
-            // Equality for comparisons, map keys etc.
             bool operator==(const NetworkEndpoint& other) const {
                 return ipAddress == other.ipAddress && port == other.port;
             }
-            // Add operator< if used as a key in std::map without a custom comparator
         };
 
     } // namespace Networking
