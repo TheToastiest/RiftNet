@@ -26,7 +26,7 @@ namespace RiftForged {
             uint64_t nonce;
             std::vector<uint8_t> data;
             uint64_t timeSent;
-            int retries = 0;  // ✅ Add this line
+            int retries = 0;  
 
             ReliablePacket() = default;
 
