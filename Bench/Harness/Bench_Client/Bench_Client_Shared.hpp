@@ -40,6 +40,7 @@ struct TimeSyncPacket {
 // minimal snapshot shape for timestamp hook (adjust to your real snapshot)
 struct SnapshotHeader {
     uint64_t frame_idx;
+    uint32_t entity_count;
 };
 
 // Adapter you bind to RiftNet client

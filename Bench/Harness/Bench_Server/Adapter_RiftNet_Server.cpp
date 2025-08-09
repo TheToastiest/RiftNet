@@ -1,4 +1,4 @@
-﻿// Bench/Harness/Bench_Server/Adapter_RiftNet.cpp
+﻿// Bench/Harness/Bench_Server/Adapter_RiftNet_Server.cpp
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
@@ -6,29 +6,31 @@
 #include <cstdint>
 #include <cstdio>
 #include <mutex>
-#include <map>
 #include <unordered_map>
 #include <vector>
 #include <string>
 
 #pragma comment(lib, "winmm.lib")
 
-#include "Bench_Server_Shared.hpp" // QpcClock, IFrameHook, TimeSyncPacket, ServerConfig
+#include "Bench_Server_Shared.hpp"
 
-// ---- RiftNet transport (adjust include paths if needed) ----
-#include "core/Logger.hpp"
-#include "core/NetworkTypes.hpp"
-#include "core/INetworkIOEvents.hpp"
-#include "core/INetworkIO.hpp"
-#include "core/NetworkEndpoint.hpp"
-#include "platform/UDPSocketAsync.hpp"
-#include "core/Connection.hpp"
-#include "core/UDPReliabilityProtocol.hpp"
-#include "core/RiftGlobals.hpp"
+// ---- RiftNet transport ----
+#include "../../RiftNet/include/core/Logger.hpp"
+#include "../../RiftNet/include/core/NetworkTypes.hpp"
+#include "../../RiftNet/include/core/INetworkIOEvents.hpp"
+#include "../../RiftNet/include/core/INetworkIO.hpp"
+#include "../../RiftNet/include/core/NetworkEndpoint.hpp"
+#include "../../RiftNet/include/platform/UDPSocketAsync.hpp"
+#include "../../RiftNet/include/core/Connection.hpp"
+#include "../../RiftNet/include/core/UDPReliabilityProtocol.hpp"
+#include "../../RiftNet/include/core/RiftGlobals.hpp"
 
 #include <spdlog/spdlog.h>
 
-// ---- Wire (bench-facing app payloads) ----
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+
 namespace RiftNet {
     enum class PacketType : uint8_t {
         EchoTest = 1,
@@ -40,51 +42,47 @@ namespace RiftNet {
 #pragma pack(push,1)
     struct MsgTimeSync {
         uint64_t frame_idx;
-        int64_t  server_qpc_ticks; // QPC ticks at send
+        int64_t  server_qpc_ticks;
     };
     struct SnapshotHeader {
         uint64_t frame_idx;
-        uint32_t entity_count; // optional; payload follows
+        uint32_t entity_count;
     };
 #pragma pack(pop)
 }
-
-// ---- Local helpers/macros ----
-#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
-#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
-#endif
 
 using namespace RiftForged::Networking;
 using namespace RiftForged::Logging;
 
 namespace RiftNetBenchAdapter {
 
-    // ---------------- Globals ----------------
-    static std::atomic<bool>    g_run{ false };
-    static HANDLE               g_thread = nullptr;
-    static HANDLE               g_timer = nullptr;
+    static std::atomic<bool>     g_run{ false };
+    static HANDLE                g_thread = nullptr;
+    static HANDLE                g_timer = nullptr;
     static IFrameHook* g_hook = nullptr;
-    static ServerConfig         g_cfg{};
+    static ServerConfig          g_cfg{};
     static std::atomic<uint64_t> g_frame{ 0 };
-    static LARGE_INTEGER        g_qpcFreq{};
+    static LARGE_INTEGER         g_qpcFreq{};
 
-    // Transport
     static std::unique_ptr<UDPSocketAsync> g_udp;
     static std::unordered_map<std::string, std::shared_ptr<Connection>> g_conns;
-    static std::mutex            g_conns_mtx;
+    static std::mutex             g_conns_mtx;
 
-    // -------------- QPC utils --------------
     static inline int64_t qpc_now() { LARGE_INTEGER t; QueryPerformanceCounter(&t); return t.QuadPart; }
+
+    // MSVC-safe: no GNU '?:' shorthand
     static inline LONGLONG qpc_delta_to_rel100ns(int64_t delta_qpc) {
         if (delta_qpc <= 0) return -1; // fire ASAP
-        return -((delta_qpc * 10000000LL) / g_qpcFreq.QuadPart) ? : -1;
+        LONGLONG r = -((delta_qpc * 10000000LL) / g_qpcFreq.QuadPart);
+        if (r == 0) r = -1;            // never 0
+        return r;
     }
+
     static void arm_timer_for_qpc_deadline(int64_t target_qpc) {
         LARGE_INTEGER due; due.QuadPart = qpc_delta_to_rel100ns(target_qpc - qpc_now());
         SetWaitableTimerEx(g_timer, &due, 0, nullptr, nullptr, nullptr, 0);
     }
 
-    // -------------- Broadcast helpers --------------
     static void BroadcastReliable(uint8_t pktType, const uint8_t* body, size_t len) {
         std::scoped_lock lk(g_conns_mtx);
         for (auto& [_, c] : g_conns) {
@@ -112,13 +110,12 @@ namespace RiftNetBenchAdapter {
             buf.data(), buf.size());
     }
 
-    // -------------- Packet handler --------------
     class PacketHandler : public INetworkIOEvents {
     public:
         void OnRawDataReceived(const NetworkEndpoint& sender,
             const uint8_t* data,
             uint32_t size,
-            OverlappedIOContext* /*context*/) override
+            OverlappedIOContext*) override
         {
             std::shared_ptr<Connection> conn;
             {
@@ -127,21 +124,15 @@ namespace RiftNetBenchAdapter {
                 auto it = g_conns.find(key);
                 if (it == g_conns.end()) {
                     auto nc = std::make_shared<Connection>(sender);
-                    // bridge send → UDP
                     nc->SetSendCallback([](const NetworkEndpoint& to, const std::vector<uint8_t>& pkt) {
                         if (g_udp) g_udp->SendData(to, pkt.data(), static_cast<uint32_t>(pkt.size()));
                         });
-                    // deliver app packets to sim (optional Input)
-                    nc->SetAppPacketCallback([](const std::string& key, uint8_t pktType,
-                        const uint8_t* body, size_t len) {
-                            (void)key;
-                            if (pktType == static_cast<uint8_t>(RiftNet::PacketType::Input)) {
-                                // Example: parse input for sim; currently ignored
-                                // if (len >= sizeof(RiftNet::InputPkt)) { ... }
-                            }
+                    nc->SetAppPacketCallback([](const std::string& /*key*/, uint8_t pktType,
+                        const uint8_t* /*body*/, size_t /*len*/) {
+                            // Optional: handle PacketType::Input here
+                            (void)pktType;
                         });
 
-                    // kick handshake: send our pubkey first
                     const auto& pub = nc->GetLocalPublicKey();
                     nc->SendUnencrypted(std::vector<uint8_t>(pub.begin(), pub.end()));
 
@@ -151,7 +142,6 @@ namespace RiftNetBenchAdapter {
                 conn = it->second;
             }
 
-            // hand raw to connection (handshake / decrypt / decompress / dispatch)
             if (conn) conn->HandleRawPacket(std::vector<uint8_t>(data, data + size));
         }
 
@@ -161,13 +151,11 @@ namespace RiftNetBenchAdapter {
         }
     };
 
-    // -------------- Sim thread --------------
     static DWORD WINAPI SimThread(LPVOID) {
         QueryPerformanceFrequency(&g_qpcFreq);
         timeBeginPeriod(1);
 
-        DWORD flags = CREATE_WAITABLE_TIMER_HIGH_RESOLUTION;
-        g_timer = CreateWaitableTimerExW(nullptr, nullptr, flags, TIMER_ALL_ACCESS);
+        g_timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
         if (!g_timer) g_timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
         if (!g_timer) { timeEndPeriod(1); return 1; }
 
@@ -176,9 +164,7 @@ namespace RiftNetBenchAdapter {
         const uint32_t timesync_every = g_cfg.timesync_every_frames ? g_cfg.timesync_every_frames : 30;
 
         int64_t next_deadline = qpc_now();
-
-        // scratch payload buffer if you want to attach state; empty by default
-        std::vector<uint8_t> snap_payload;
+        std::vector<uint8_t> snap_payload; // optional state payload
 
         while (g_run.load(std::memory_order_relaxed)) {
             arm_timer_for_qpc_deadline(next_deadline);
@@ -190,19 +176,16 @@ namespace RiftNetBenchAdapter {
 
             if (g_hook) g_hook->onFrameBegin(frame, t0_qpc);
 
-            // TODO: authoritative simulation step
-            // g_hook->onAccumulate(EntityState{...}) per entity to feed hash
+            // TODO: sim step + g_hook->onAccumulate(...)
 
             const int64_t t1_qpc = qpc_now();
             if (g_hook) g_hook->onFrameEnd(frame, t1_qpc);
 
-            // Broadcast a minimal snapshot (header + optional payload)
             BroadcastSnapshotWire(frame,
                 snap_payload.empty() ? nullptr : snap_payload.data(),
                 snap_payload.size(),
                 /*entity_count*/ 0);
 
-            // Periodic TimeSync
             if (timesync_every && (frame % timesync_every) == 0) {
                 BroadcastTimeSyncWire(frame, t1_qpc);
             }
@@ -217,22 +200,19 @@ namespace RiftNetBenchAdapter {
         return 0;
     }
 
-    // -------------- Public API --------------
     bool StartServer(const ServerConfig& cfg, IFrameHook* hook) {
         if (g_run.load()) return true;
 
-        Logger::Init(); // your RiftNet logger
+        Logger::Init();
         spdlog::info("=== Bench Adapter (RiftNet) ===");
 
         g_cfg = cfg;
         g_hook = hook;
         g_frame.store(0);
 
-        // Transport bring-up
         g_udp = std::make_unique<UDPSocketAsync>();
         static PacketHandler handler;
 
-        // Bind on cfg.port
         if (!g_udp->Init("0.0.0.0", cfg.port ? cfg.port : 4000, &handler)) {
             spdlog::error("UDPSocketAsync::Init failed");
             g_udp.reset();
@@ -244,7 +224,6 @@ namespace RiftNetBenchAdapter {
             return false;
         }
 
-        // Sim thread
         g_run.store(true);
         g_thread = CreateThread(nullptr, 0, SimThread, nullptr, 0, nullptr);
         return g_thread != nullptr;
@@ -257,7 +236,6 @@ namespace RiftNetBenchAdapter {
         if (g_timer) { CancelWaitableTimer(g_timer); }
         if (g_thread) { WaitForSingleObject(g_thread, INFINITE); CloseHandle(g_thread); g_thread = nullptr; }
 
-        // Tear down transport
         {
             std::scoped_lock lk(g_conns_mtx);
             g_conns.clear();
@@ -268,7 +246,6 @@ namespace RiftNetBenchAdapter {
     }
 
     void BroadcastTimeSync(const TimeSyncPacket& ts) {
-        // Bench API compatibility: forward to wire broadcast
         BroadcastTimeSyncWire(ts.frame_idx, static_cast<int64_t>(ts.server_qpc_ticks));
     }
 

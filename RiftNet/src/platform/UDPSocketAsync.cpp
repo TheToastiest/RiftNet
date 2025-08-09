@@ -61,7 +61,7 @@ namespace RiftForged {
         // Init: Initializes the Winsock environment, creates and binds the UDP socket,
         // and sets up the I/O Completion Port.
         bool UDPSocketAsync::Init(const std::string& listenIp, uint16_t listenPort, INetworkIOEvents* eventHandler) {
-            RF_NETWORK_INFO("UDPSocketAsync: Initializing for %s:%hu...", listenIp.c_str(), listenPort);
+            RF_NETWORK_INFO("UDPSocketAsync: Initializing for {}...", listenIp.c_str(), listenPort);
 
             // Prevent re-initialization if already running.
             if (m_isRunning.load(std::memory_order_relaxed)) {
@@ -82,7 +82,7 @@ namespace RiftForged {
             WSADATA wsaData;
             int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
             if (result != 0) {
-                RF_NETWORK_CRITICAL("UDPSocketAsync: WSAStartup failed with error: %d", result);
+                RF_NETWORK_CRITICAL("UDPSocketAsync: WSAStartup failed with error: {}", result);
                 m_eventHandler->OnNetworkError("WSAStartup failed", result);
                 return false;
             }
@@ -92,12 +92,12 @@ namespace RiftForged {
             m_socket = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
             if (m_socket == INVALID_SOCKET) {
                 int errorCode = WSAGetLastError();
-                RF_NETWORK_CRITICAL("UDPSocketAsync: WSASocket() failed with error: %d", errorCode);
+                RF_NETWORK_CRITICAL("UDPSocketAsync: WSASocket() failed with error: {}", errorCode);
                 m_eventHandler->OnNetworkError("WSASocket failed", errorCode);
                 WSACleanup();
                 return false;
             }
-            RF_NETWORK_INFO("UDPSocketAsync: Socket created successfully (Socket ID: %llu).", m_socket); // Use %llu for SOCKET type
+            RF_NETWORK_INFO("UDPSocketAsync: Socket created successfully (Socket ID: {}).", m_socket); // Use %llu for SOCKET type
 
             // Prepare the server address structure.
             sockaddr_in serverAddr;
@@ -106,7 +106,7 @@ namespace RiftForged {
             // Convert IP string to binary form.
             if (inet_pton(AF_INET, m_listenIp.c_str(), &serverAddr.sin_addr) != 1) {
                 int errorCode = GetLastError(); // GetLastError for non-Winsock specific errors like invalid argument.
-                RF_NETWORK_CRITICAL("UDPSocketAsync: inet_pton failed for IP %s. Error: %d", m_listenIp.c_str(), errorCode);
+                RF_NETWORK_CRITICAL("UDPSocketAsync: inet_pton failed for IP {}. Error: {}", m_listenIp.c_str(), errorCode);
                 m_eventHandler->OnNetworkError("inet_pton failed for listen IP", errorCode);
                 closesocket(m_socket); m_socket = INVALID_SOCKET;
                 WSACleanup();
@@ -116,13 +116,13 @@ namespace RiftForged {
             // Bind the socket to the specified IP address and port.
             if (bind(m_socket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
                 int errorCode = WSAGetLastError();
-                RF_NETWORK_CRITICAL("UDPSocketAsync: bind() failed with error: %d", errorCode);
+                RF_NETWORK_CRITICAL("UDPSocketAsync: bind() failed with error: {}", errorCode);
                 m_eventHandler->OnNetworkError("bind failed", errorCode);
                 closesocket(m_socket); m_socket = INVALID_SOCKET;
                 WSACleanup();
                 return false;
             }
-            RF_NETWORK_INFO("UDPSocketAsync: Socket bound successfully to %s:%hu.", m_listenIp.c_str(), m_listenPort);
+            RF_NETWORK_INFO("UDPSocketAsync: Socket bound successfully to {}.", m_listenIp.c_str(), m_listenPort);
 
             // Create the I/O Completion Port.
             m_iocpHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
