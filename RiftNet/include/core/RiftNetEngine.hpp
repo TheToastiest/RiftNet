@@ -1,29 +1,33 @@
+// include/riftnet/RiftNetEngine.hpp
 #pragma once
-
-#include <memory>
 #include <cstdint>
+#include <cstddef>
+#include <functional>
+#include <vector>
+#include "RiftNetWire.hpp"
 
-#include "IPacketProcessor.hpp"
+namespace RiftNet {
 
-namespace RiftNet
-{
-    class RiftNetEngine
-    {
-    public:
-        explicit RiftNetEngine(std::shared_ptr<IPacketProcessor> processor);
-        ~RiftNetEngine() = default;
+    using BroadcastFn = std::function<void(const uint8_t* bytes, size_t len)>;
+    using SendOneFn = std::function<void(const char* key, const uint8_t* bytes, size_t len)>; // key = endpoint string
 
-        // Called by application or server loop
-        void PollIncoming(); // Future-proof for socket reads
+    struct IRiftNetEngine {
+        virtual ~IRiftNetEngine() = default;
+        virtual void Initialize(BroadcastFn bc, SendOneFn send_one) = 0;
 
-        // Future expansions:
-        // void SendPacket(...);
-        // void AddConnection(...);
+        // Called each authoritative tick. If it returns true, fill sh+payload to broadcast.
+        virtual bool Tick(uint64_t frame_idx,
+            int64_t  t_pre_sim_qpc,       // for logging
+            SnapshotHeader& sh,
+            std::vector<uint8_t>& payload // engine fills
+        ) = 0;
 
-    private:
-        std::shared_ptr<IPacketProcessor> _processor;
-
-        // When real socket layer is in:
-        // std::unique_ptr<IUDPSocket> _socket;
+        // Called on client input (already decrypted & decompressed app bytes)
+        virtual void OnInput(const InputPkt& in, const char* endpointKey) = 0;
     };
-}
+
+    // Factory you implement
+    IRiftNetEngine* CreateRiftNetEngine();
+    void DestroyRiftNetEngine(IRiftNetEngine*);
+
+} // namespace RiftNet

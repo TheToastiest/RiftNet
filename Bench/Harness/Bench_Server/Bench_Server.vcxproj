@@ -21,10 +21,9 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{1f3bf9eb-4473-4b81-b952-128411568327}</ProjectGuid>
-    <RootNamespace>RiftNetCore</RootNamespace>
+    <ProjectGuid>{d6f2df66-c124-4a32-965f-f64f7221b31b}</ProjectGuid>
+    <RootNamespace>BenchServer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>RiftNet</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -41,13 +40,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -104,15 +103,15 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>C:\users\brinn\source\repos\riftnet\riftnet\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>C:\Users\brinn\source\repos\RiftEncrypt\RiftEncrypt\include;C:\Users\brinn\source\repos\RiftCompress\RiftCompress\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\brinn\source\repos\RiftEncrypt\x64\Debug;C:\Users\brinn\source\repos\RiftCompress\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>RiftCompress.lib;RiftEncrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\brinn\source\repos\RiftNet\x64\Debug;C:\Users\brinn\source\repos\RiftCompress\x64\Debug;C:\Users\brinn\source\repos\RiftEncrypt\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>RiftNet.lib;RiftCompress.lib;RiftEncrypt.lib;Bench_Lib_StateHash.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -123,60 +122,18 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>C:\Users\brinn\source\repos\RiftEncrypt\RiftEncrypt\include;C:\Users\brinn\source\repos\RiftCompress\RiftCompress\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\brinn\source\repos\RiftCompress\x64\Release;C:\Users\brinn\source\repos\RiftEncrypt\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>RiftCompress.lib;RiftEncrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\core\Connection.cpp" />
-    <ClCompile Include="src\core\KeyExchange.cpp" />
-    <ClCompile Include="src\core\Logger.cpp" />
-    <ClCompile Include="src\core\PacketProcessor.cpp" />
-    <ClCompile Include="src\core\RiftNetEngine.cpp" />
-    <ClCompile Include="src\core\SecureChannel.cpp" />
-    <ClCompile Include="src\core\ThreadPool.cpp" />
-    <ClCompile Include="src\core\UDPReliabilityProtocol.cpp" />
-    <ClCompile Include="src\platform\UDPSocketAsync.cpp" />
+    <ClCompile Include="Adapter_RiftNet.cpp" />
+    <ClCompile Include="Bench_Server.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\core\Connection.hpp" />
-    <ClInclude Include="include\core\HandshakePacket.hpp" />
-    <ClInclude Include="include\core\INetEventListener.hpp" />
-    <ClInclude Include="include\core\INetworkIO.hpp" />
-    <ClInclude Include="include\core\INetworkIOEvents.hpp" />
-    <ClInclude Include="include\core\IPacket.hpp" />
-    <ClInclude Include="include\core\IPacketProcessor.hpp" />
-    <ClInclude Include="include\core\KeyExchange.hpp" />
-    <ClInclude Include="include\core\Logger.hpp" />
-    <ClInclude Include="include\core\NetworkEndpoint.hpp" />
-    <ClInclude Include="include\core\NetworkTypes.hpp" />
-    <ClInclude Include="include\core\PacketEncryptCompress.hpp" />
-    <ClInclude Include="include\core\PacketProcessor.hpp" />
-    <ClInclude Include="include\core\PacketTypes.hpp" />
-    <ClInclude Include="include\core\ReliableConnectionState.hpp" />
-    <ClInclude Include="include\core\ReliablePacketHeader.hpp" />
-    <ClInclude Include="include\core\ReliableTypes.hpp" />
-    <ClInclude Include="include\core\RiftGlobals.hpp" />
-    <ClInclude Include="include\core\RiftNetEngine.hpp" />
-    <ClInclude Include="include\core\RiftNetWire.hpp" />
-    <ClInclude Include="include\core\SecureChannel.hpp" />
-    <ClInclude Include="include\core\ThreadPool.hpp" />
-    <ClInclude Include="include\core\UDPReliabilityProtocol.hpp" />
-    <ClInclude Include="include\platform\OverlappedIOContext.hpp" />
-    <ClInclude Include="include\platform\UDPSocketAsync.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\Docs\LICENSE.md" />
-    <None Include="..\Docs\PHILOSOPHY.md" />
-    <None Include="..\Docs\README.md" />
+    <ClInclude Include="Bench_Server_Shared.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

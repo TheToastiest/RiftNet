@@ -21,12 +21,12 @@
     <Filter Include="include\core">
       <UniqueIdentifier>{a75fce6b-9aa4-492e-a95f-99ce467c4f47}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\core\platform">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
     <Filter Include="Docs">
       <UniqueIdentifier>{fc16ac3a-14f8-42ce-9dd0-7f173f60d6fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\platform">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -40,7 +40,7 @@
       <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="src\platform\UDPSocketAsync.cpp">
-      <Filter>src\core\platform</Filter>
+      <Filter>src\platform</Filter>
     </ClCompile>
     <ClCompile Include="src\core\Logger.cpp">
       <Filter>src\core</Filter>
@@ -52,6 +52,9 @@
       <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="src\core\SecureChannel.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ThreadPool.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
   </ItemGroup>
@@ -120,6 +123,15 @@
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\core\ReliableTypes.hpp">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\ThreadPool.hpp">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\RiftGlobals.hpp">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\RiftNetWire.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
   </ItemGroup>

@@ -12,6 +12,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+
 #include "../RiftNet/include/core/Logger.hpp"
 #include "../RiftNet/include/core/NetworkTypes.hpp"
 #include "../RiftNet/include/core/INetworkIOEvents.hpp"
@@ -20,10 +21,13 @@
 #include "../RiftNet/include/platform/UDPSocketAsync.hpp"
 #include "../RiftNet/include/core/Connection.hpp"
 #include "../RiftNet/include/core/UDPReliabilityProtocol.hpp"
+#include "../RiftNet/include/core/RiftGlobals.hpp"
 
 using namespace RiftForged::Networking;
 using namespace RiftForged::Logging;
+using namespace RiftForged::Threading;
 
+std::shared_ptr<TaskThreadPool> cryptoThreadPool = std::make_shared<TaskThreadPool>(8);
 static std::unordered_map<std::string, std::shared_ptr<Connection>> g_connectionMap;
 static std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_connectionTimestamps;
 static std::mutex g_connectionMutex;
@@ -119,7 +123,7 @@ void ReliabilityUpdateLoop() {
             if (++tickCounter % 50 == 0) {
                 float rtt = state.smoothedRTT_ms;
                 float rto = state.retransmissionTimeout_ms;
-                RF_NETWORK_INFO("[{}] RTT: {:.2f} ms | RTO: {:.2f} ms | PendingAcks: {}",
+                RF_NETWORK_INFO("[{}] RTT: {:.1f} ms | RTO: {:.1f} ms | PendingAcks: {}",
                     key, rtt, rto, state.unacknowledgedSentPackets.size());
             }
         }
@@ -128,6 +132,7 @@ void ReliabilityUpdateLoop() {
 
 int main() {
     Logger::Init();
+    cryptoThreadPool = std::make_shared<TaskThreadPool>(12);
     udpSocket = std::make_unique<UDPSocketAsync>();
     RF_NETWORK_INFO("=== RiftNet UDP Secure Server ===");
 
@@ -155,7 +160,7 @@ int main() {
 
     reliabilityThread.join();
     udpSocket->Stop();
-
+    cryptoThreadPool->stop();
     RF_NETWORK_INFO("Server shut down cleanly.");
     return 0;
 }

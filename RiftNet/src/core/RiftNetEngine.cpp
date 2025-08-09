@@ -1,23 +1,23 @@
+// src/RiftNetEngine.cpp
 #include "../../include/core/RiftNetEngine.hpp"
-#include <iostream>
+namespace RiftNet {
 
-namespace RiftNet
-{
-    RiftNetEngine::RiftNetEngine(std::shared_ptr<IPacketProcessor> processor)
-        : _processor(std::move(processor))
-    {
-        std::cout << "[RiftNetEngine] Initialized.\n";
-    }
+    class Engine final : public IRiftNetEngine {
+        BroadcastFn bc_; SendOneFn send_;
+    public:
+        void Initialize(BroadcastFn bc, SendOneFn s) override { bc_ = std::move(bc); send_ = std::move(s); }
+        bool Tick(uint64_t frame, int64_t /*t0*/, SnapshotHeader& sh, std::vector<uint8_t>& payload) override {
+            sh.frame_idx = frame;
+            sh.entity_count = 0;
+            payload.clear();     // no entities yet
+            return true;         // send every tick for bench
+        }
+        void OnInput(const InputPkt& in, const char* /*key*/) override {
+            (void)in; // TODO: apply to sim
+        }
+    };
 
-    void RiftNetEngine::PollIncoming()
-    {
-        // Placeholder: in a real server this would be triggered by socket read completion
-        std::cout << "[RiftNetEngine] PollIncoming called (no-op).\n";
+    IRiftNetEngine* CreateRiftNetEngine() { return new Engine(); }
+    void DestroyRiftNetEngine(IRiftNetEngine* p) { delete p; }
 
-        // Later:
-        // uint8_t buffer[MAX_PACKET_SIZE];
-        // int received = _socket->Receive(buffer, MAX_PACKET_SIZE);
-        // if (received > 0)
-        //     _processor->ProcessIncomingPacket(buffer, received);
-    }
-}
+} // namespace RiftNet
