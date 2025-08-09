@@ -7,8 +7,14 @@
 namespace RiftForged::Networking {
 
     Connection::Connection(const NetworkEndpoint& remote)
-        : endpoint(remote), handshakeComplete(false), nonceRx(1), nonceTx(1),
-        localSequence(0), remoteSequence(0), remoteAckBitfield(0), currentNonce(0) {
+        : endpoint(remote)
+        , handshakeComplete(false)
+        , nonceRx(1)
+        , nonceTx(1)
+        , localSequence(0)
+        , remoteSequence(0)
+        , remoteAckBitfield(0)
+        , currentNonce(0) {
     }
 
     const NetworkEndpoint& Connection::GetRemoteAddress() const {
@@ -23,6 +29,10 @@ namespace RiftForged::Networking {
         sendCallback = std::move(cb);
     }
 
+    void Connection::SetAppPacketCallback(AppPacketCallback cb) {
+        appCallback = std::move(cb);
+    }
+
     uint64_t Connection::GenerateUniqueNonce() {
         return encryptNonceBase + (currentNonce++);
     }
@@ -34,7 +44,6 @@ namespace RiftForged::Networking {
     bool Connection::IsConnected() const {
         return reliabilityState.isConnected;
     }
-
 
     void Connection::SendUnencrypted(const std::vector<uint8_t>& data) {
         if (sendCallback) {
@@ -144,6 +153,7 @@ namespace RiftForged::Networking {
 
     void Connection::HandleRawPacket(const std::vector<uint8_t>& raw) {
         try {
+            // ---- Handshake (unchanged) ----
             if (!handshakeComplete) {
                 if (raw.size() == 32) {
                     KeyExchange::KeyBuffer remotePub;
@@ -160,9 +170,10 @@ namespace RiftForged::Networking {
                     handshakeComplete = true;
                     RF_NETWORK_INFO("Handshake complete with {}", endpoint.ToString());
 
+                    // echo our pubkey back to complete the mutual exchange
                     if (sendCallback) {
-                        sendCallback(endpoint,
-                            std::vector<uint8_t>(GetLocalPublicKey().begin(), GetLocalPublicKey().end()));
+                        const auto& pub = GetLocalPublicKey();
+                        sendCallback(endpoint, std::vector<uint8_t>(pub.begin(), pub.end()));
                     }
                     return;
                 }
@@ -172,6 +183,7 @@ namespace RiftForged::Networking {
                 }
             }
 
+            // ---- Secure path: decrypt ----
             std::vector<uint8_t> decrypted;
             if (!secureChannel.Decrypt(raw, decrypted, nonceRx++)) {
                 RF_NETWORK_WARN("Decryption failed from {}", endpoint.ToString());
@@ -183,19 +195,26 @@ namespace RiftForged::Networking {
                 return;
             }
 
-            ReliablePacketHeader header;
+            // ---- Peel reliable header ----
+            ReliablePacketHeader header{};
             std::memcpy(&header, decrypted.data(), sizeof(ReliablePacketHeader));
 
-            std::vector<uint8_t> compressedPayload(decrypted.begin() + sizeof(ReliablePacketHeader), decrypted.end());
+            // TODO: update reliability state from header (acks) if not handled elsewhere
 
-            Compressor decompressor(std::make_unique<LZ4Algorithm>());
+            // ---- Decompress app payload ----
+            const uint8_t* compBegin = decrypted.data() + sizeof(ReliablePacketHeader);
+            const size_t   compSize = decrypted.size() - sizeof(ReliablePacketHeader);
+
             std::vector<uint8_t> decompressed;
-            try {
-                decompressed = decompressor.decompress(compressedPayload);
-            }
-            catch (const std::exception& ex) {
-                RF_NETWORK_ERROR("[{}] Decompression failed: {}", endpoint.ToString(), ex.what());
-                return;
+            {
+                Compressor decompressor(std::make_unique<LZ4Algorithm>());
+                try {
+                    decompressed = decompressor.decompress({ compBegin, compBegin + compSize });
+                }
+                catch (const std::exception& ex) {
+                    RF_NETWORK_ERROR("[{}] Decompression failed: {}", endpoint.ToString(), ex.what());
+                    return;
+                }
             }
 
             if (decompressed.empty()) {
@@ -203,14 +222,28 @@ namespace RiftForged::Networking {
                 return;
             }
 
-            RF_NETWORK_DEBUG("[{}] Decompressed size: {}", endpoint.ToString(), decompressed.size());
+            // ---- App dispatch ----
+            const uint8_t* body = decompressed.data();
+            const size_t   bodyLen = decompressed.size();
+            const uint8_t  pktType = header.packetType;
 
-            std::string msg(decompressed.begin(), decompressed.end());
-            RF_NETWORK_INFO("[{}] > {}", endpoint.ToString(), msg);
+            if (appCallback) {
+                // Forward to application/engine layer with endpoint key
+                appCallback(endpoint.ToString(), pktType, body, bodyLen);
+                return;
+            }
 
-            std::string echoStr = "[ECHO] " + msg;
-            std::vector<uint8_t> echoVec(echoStr.begin(), echoStr.end());
-            SendReliable(echoVec, static_cast<uint8_t>(PacketType::EchoTest));
+            // ---- Fallback (legacy dev path): log and echo ----
+            {
+                std::string msg(body, body + bodyLen);
+                RF_NETWORK_INFO("[{}] > {}", endpoint.ToString(), msg);
+
+                std::string echoStr = "[ECHO] " + msg;
+                std::vector<uint8_t> echoVec(echoStr.begin(), echoStr.end());
+
+                // Keep using your existing PacketType::EchoTest for compatibility
+                SendReliable(echoVec, static_cast<uint8_t>(PacketType::EchoTest));
+            }
 
         }
         catch (const std::exception& ex) {
@@ -227,6 +260,7 @@ namespace RiftForged::Networking {
     void Connection::PerformKeyExchange(const KeyExchange::KeyBuffer& clientPubKey, bool isServer) {
         encryptNonceBase = GenerateSecureRandomNonce64();
         keyExchange.SetRemotePublicKey(clientPubKey);
+
         KeyExchange::KeyBuffer rxKey, txKey;
         if (!keyExchange.DeriveSharedKey(isServer, rxKey, txKey)) {
             RF_NETWORK_ERROR("Manual key exchange failed for {}", endpoint.ToString());
@@ -237,7 +271,5 @@ namespace RiftForged::Networking {
         handshakeComplete = true;
         RF_NETWORK_INFO("Manual handshake complete with {}", endpoint.ToString());
     }
-
-
 
 } // namespace RiftForged::Networking

@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="josnlreader.cpp">
+    <ClCompile Include="Benchmark_Combiner.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

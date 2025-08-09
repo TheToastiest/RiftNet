@@ -23,7 +23,13 @@ namespace RiftForged::Networking {
 
     class Connection {
     public:
+        using AppPacketCallback = std::function<void(const std::string& key,
+            uint8_t pktType,
+            const uint8_t* body,
+            size_t len)>;
+
         using SendCallback = std::function<void(const NetworkEndpoint&, const std::vector<uint8_t>&)>;
+        void SetAppPacketCallback(AppPacketCallback cb);
 
         Connection(const NetworkEndpoint& remoteAddr);
 
@@ -66,6 +72,8 @@ namespace RiftForged::Networking {
         SendCallback sendCallback;
         uint64_t nonceRx = 1;
         uint64_t nonceTx = 1;
+
+        AppPacketCallback appCallback;
     };
 
 } // namespace RiftForged::Networking

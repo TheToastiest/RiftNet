@@ -1,4 +1,4 @@
-﻿// bench_analyze.cpp (QPC-robust, C++17)
+// bench_analyze.cpp (QPC-robust, C++17)
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
         }
     }
     else {
-        // Fallback (ns-relative) — will include base mismatch => huge values
+        // Fallback (ns-relative) � will include base mismatch => huge values
         warning = "QPC alignment unavailable (missing t_present_qpc or t_post_sim_qpc); server_to_present uses ns-relative fallback.";
         for (const auto& pr : presents) {
             auto it = server.find(pr.frame);

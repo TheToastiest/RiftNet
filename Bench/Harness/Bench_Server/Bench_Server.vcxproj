@@ -103,7 +103,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\users\brinn\source\repos\riftnet\riftnet\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\users\brinn\source\repos\riftnet\riftnet\include;C:\users\brinn\source\repos\riftcompress\riftcompress\include;C:\Users\brinn\source\repos\RiftEncrypt\RiftEncrypt\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -129,7 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Adapter_RiftNet.cpp" />
+    <ClCompile Include="Adapter_RiftNet_Server.cpp" />
     <ClCompile Include="Bench_Server.cpp" />
   </ItemGroup>
   <ItemGroup>

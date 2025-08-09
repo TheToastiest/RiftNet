@@ -18,7 +18,7 @@
     <ClCompile Include="Bench_Server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Adapter_RiftNet.cpp">
+    <ClCompile Include="Adapter_RiftNet_Server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
