@@ -3,10 +3,9 @@
 #pragma once
 
 #include "Logger.hpp"
-#include "NetworkTypes.hpp"
+#include "protocols.hpp"
 #include "NetworkEndpoint.hpp"
 #include "HandshakePacket.hpp"
-#include "ReliableConnectionState.hpp"
 #include "UDPReliabilityProtocol.hpp"
 #include "PacketTypes.hpp"
 #include "SecureChannel.hpp"
@@ -31,7 +30,7 @@ namespace RiftForged::Networking {
         using SendCallback = std::function<void(const NetworkEndpoint&, const std::vector<uint8_t>&)>;
         void SetAppPacketCallback(AppPacketCallback cb);
 
-        Connection(const NetworkEndpoint& remoteAddr);
+        Connection(const NetworkEndpoint& remoteAddr, bool isServerRole);
 
         void SetSendCallback(SendCallback cb);
         const NetworkEndpoint& GetRemoteAddress() const;
@@ -41,8 +40,9 @@ namespace RiftForged::Networking {
         void SendSecure(const std::vector<uint8_t>& payload);
         void SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetType);
         void SendRawPacket(const std::vector<uint8_t>& packet);
-        void SendPacket(const std::vector<uint8_t>& reliablePayload);
+        void SendPacket(const std::vector<uint8_t>& reliablePayload, uint8_t packetType);
         bool IsConnected() const;
+        void SendFramed(const std::vector<uint8_t>& framedWire);
 
         const KeyExchange::KeyBuffer& GetLocalPublicKey() const;
         void PerformKeyExchange(const KeyExchange::KeyBuffer& clientPubKey, bool isServer);
@@ -72,7 +72,7 @@ namespace RiftForged::Networking {
         SendCallback sendCallback;
         uint64_t nonceRx = 1;
         uint64_t nonceTx = 1;
-
+        bool isServerRole_ = true;
         AppPacketCallback appCallback;
     };
 

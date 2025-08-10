@@ -157,7 +157,7 @@
     <ClInclude Include="include\core\KeyExchange.hpp" />
     <ClInclude Include="include\core\Logger.hpp" />
     <ClInclude Include="include\core\NetworkEndpoint.hpp" />
-    <ClInclude Include="include\core\NetworkTypes.hpp" />
+    <ClInclude Include="include\core\protocols.hpp" />
     <ClInclude Include="include\core\PacketEncryptCompress.hpp" />
     <ClInclude Include="include\core\PacketProcessor.hpp" />
     <ClInclude Include="include\core\PacketTypes.hpp" />

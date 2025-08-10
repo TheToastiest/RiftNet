@@ -42,7 +42,18 @@ struct SnapshotHeader {
     uint64_t frame_idx;
     uint32_t entity_count;
 };
-
+namespace RiftNet {
+#pragma pack(push,1)
+    struct MsgTimeSync {
+        uint64_t frame_idx;
+        int64_t  server_qpc_ticks;
+    };
+    struct WireSnapshotHeader {
+        uint64_t frame_idx;
+        uint32_t entity_count;
+    };
+#pragma pack(pop)
+}
 // Adapter you bind to RiftNet client
 namespace RiftNetBenchClient {
     struct ClientConfig {

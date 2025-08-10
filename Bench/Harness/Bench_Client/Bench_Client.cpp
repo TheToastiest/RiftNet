@@ -81,9 +81,6 @@ static void OnSnapshot(const SnapshotHeader& hdr, const void*, size_t) {
 }
 
 
-
-
-
 // timesync callback
 static void OnTimeSync(const TimeSyncPacket& ts) {
     if (ts.version != 1 || ts.magic != 0x53594E43) return;
@@ -120,7 +117,6 @@ int wmain(int argc, wchar_t** argv) {
 
     RiftNetBenchClient::SetOnSnapshot(&OnSnapshot);
     RiftNetBenchClient::SetOnTimeSync(&OnTimeSync);
-
     if (!RiftNetBenchClient::Connect(cfg)) {
         std::cerr << "connect fail\n"; return 3;
     }

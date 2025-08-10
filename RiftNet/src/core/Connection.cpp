@@ -1,12 +1,18 @@
 ﻿// File: Connection.cpp
 
 #include "../../include/core/Connection.hpp"
+#include "../../include/core/protocols.hpp"            // <- replaces NetworkTypes.hpp
+#include "../../include/core/UDPReliabilityProtocol.hpp"
 #include <spdlog/spdlog.h>
 #include <cstring>
+#include <mutex>
+#include <algorithm>
+
+using namespace RiftNet::Protocol;
 
 namespace RiftForged::Networking {
 
-    Connection::Connection(const NetworkEndpoint& remote)
+    Connection::Connection(const NetworkEndpoint& remote, bool isServerRole)
         : endpoint(remote)
         , handshakeComplete(false)
         , nonceRx(1)
@@ -14,7 +20,8 @@ namespace RiftForged::Networking {
         , localSequence(0)
         , remoteSequence(0)
         , remoteAckBitfield(0)
-        , currentNonce(0) {
+        , currentNonce(0)
+        , isServerRole_(isServerRole) {
     }
 
     const NetworkEndpoint& Connection::GetRemoteAddress() const {
@@ -45,6 +52,8 @@ namespace RiftForged::Networking {
         return reliabilityState.isConnected;
     }
 
+    // ----------------- Low-level send helpers -----------------
+
     void Connection::SendUnencrypted(const std::vector<uint8_t>& data) {
         if (sendCallback) {
             sendCallback(endpoint, data);
@@ -57,22 +66,86 @@ namespace RiftForged::Networking {
         }
     }
 
-    void Connection::SendPacket(const std::vector<uint8_t>& reliablePayload) {
+    // New canonical framed+encrypted path
+    void Connection::SendFramed(const std::vector<uint8_t>& framedWire) {
+        if (!handshakeComplete) {
+            RF_NETWORK_WARN("SendFramed called before handshake complete.");
+            return;
+        }
+        if (framedWire.empty()) return;
+
+        // Encrypt whole framed wire with channel TX nonce
+        std::vector<uint8_t> encrypted = secureChannel.Encrypt(framedWire, nonceTx++);
+        if (encrypted.empty()) {
+            RF_NETWORK_ERROR("[{}] Encryption failed for SendFramed", endpoint.ToString());
+            return;
+        }
+        if (sendCallback) sendCallback(endpoint, encrypted);
+
+        reliabilityState.lastPacketSentTime = std::chrono::steady_clock::now();
+    }
+
+    // Legacy API kept: uncompressed reliable send
+    void Connection::SendPacket(const std::vector<uint8_t>& payload, uint8_t packetTypeU8) {
         if (!handshakeComplete) {
             RF_NETWORK_WARN("SendPacket called before handshake complete.");
             return;
         }
 
-        std::vector<uint8_t> encrypted = secureChannel.Encrypt(reliablePayload, nonceTx++);
-        if (encrypted.empty()) {
-            RF_NETWORK_ERROR("[{}] Encryption failed for SendPacket", endpoint.ToString());
+        const PacketType pktType = static_cast<PacketType>(packetTypeU8);
+        auto& state = reliabilityState;
+
+        // Prepare framed packet (outer 11B + reliable 17B + body)
+        const uint64_t headerNonce = GenerateUniqueNonce();
+        auto frames = UDPReliabilityProtocol::PrepareOutgoingPacketsFramed(
+            state, pktType, payload.data(),
+            static_cast<uint32_t>(payload.size()),
+            headerNonce
+        );
+        if (frames.empty()) return;
+
+        // Encrypt & send each frame (single frame in current path)
+        for (auto& f : frames) SendFramed(f);
+    }
+
+    // Preferred API: compressed reliable send
+    void Connection::SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetTypeU8) {
+        if (!handshakeComplete) {
+            RF_NETWORK_WARN("Tried to send reliable packet before handshake with {}", endpoint.ToString());
             return;
         }
 
-        if (sendCallback) {
-            sendCallback(endpoint, encrypted);
+        // Compress payload
+        Compressor compressor(std::make_unique<LZ4Algorithm>());
+        std::vector<uint8_t> compressed;
+        try {
+            compressed = compressor.compress(plainData);
         }
+        catch (const std::exception& ex) {
+            RF_NETWORK_ERROR("Compression failed for {}: {}", endpoint.ToString(), ex.what());
+            return;
+        }
+        if (compressed.empty()) {
+            RF_NETWORK_WARN("Compression yielded no data for {}", endpoint.ToString());
+            return;
+        }
+
+        const PacketType pktType = static_cast<PacketType>(packetTypeU8);
+        auto& state = reliabilityState;
+
+        // Frame with reliability headers
+        const uint64_t headerNonce = GenerateUniqueNonce();
+        auto frames = UDPReliabilityProtocol::PrepareOutgoingPacketsFramed(
+            state, pktType, compressed.data(),
+            static_cast<uint32_t>(compressed.size()),
+            headerNonce
+        );
+        if (frames.empty()) return;
+
+        for (auto& f : frames) SendFramed(f);
     }
+
+    // ----------------- Secure raw send (non-reliable) -----------------
 
     void Connection::SendSecure(const std::vector<uint8_t>& data) {
         if (!handshakeComplete) {
@@ -89,7 +162,6 @@ namespace RiftForged::Networking {
             RF_NETWORK_ERROR("Compression failed for {}: {}", endpoint.ToString(), ex.what());
             return;
         }
-
         if (compressed.empty()) {
             RF_NETWORK_WARN("Compression failed for outgoing message to {}", endpoint.ToString());
             return;
@@ -106,54 +178,11 @@ namespace RiftForged::Networking {
         }
     }
 
-    void Connection::SendReliable(const std::vector<uint8_t>& plainData, uint8_t packetType) {
-        if (!handshakeComplete) {
-            RF_NETWORK_WARN("Tried to send reliable packet before handshake with {}", endpoint.ToString());
-            return;
-        }
-
-        Compressor compressor(std::make_unique<LZ4Algorithm>());
-        std::vector<uint8_t> compressed;
-        try {
-            compressed = compressor.compress(plainData);
-        }
-        catch (const std::exception& ex) {
-            RF_NETWORK_ERROR("Compression failed for {}: {}", endpoint.ToString(), ex.what());
-            return;
-        }
-
-        if (compressed.empty()) {
-            RF_NETWORK_WARN("Compression yielded no data for {}", endpoint.ToString());
-            return;
-        }
-
-        ReliablePacketHeader header{};
-        header.sequenceNumber = localSequence++;
-        header.ackNumber = remoteSequence;
-        header.ackBitfield = remoteAckBitfield;
-        header.packetType = packetType;
-        header.nonce = GenerateUniqueNonce();
-
-        std::vector<uint8_t> headerBytes(reinterpret_cast<uint8_t*>(&header),
-            reinterpret_cast<uint8_t*>(&header) + sizeof(ReliablePacketHeader));
-
-        std::vector<uint8_t> fullPayload;
-        fullPayload.reserve(headerBytes.size() + compressed.size());
-        fullPayload.insert(fullPayload.end(), headerBytes.begin(), headerBytes.end());
-        fullPayload.insert(fullPayload.end(), compressed.begin(), compressed.end());
-
-        std::vector<uint8_t> encrypted = secureChannel.Encrypt(fullPayload, nonceTx++);
-        if (encrypted.empty()) {
-            RF_NETWORK_ERROR("Encryption failed for reliable packet to {}", endpoint.ToString());
-            return;
-        }
-
-        SendRawPacket(encrypted);
-    }
+    // ----------------- Receive path -----------------
 
     void Connection::HandleRawPacket(const std::vector<uint8_t>& raw) {
         try {
-            // ---- Handshake (unchanged) ----
+            // ---- Handshake (X25519 pubkey exchange) ----
             if (!handshakeComplete) {
                 if (raw.size() == 32) {
                     KeyExchange::KeyBuffer remotePub;
@@ -161,20 +190,14 @@ namespace RiftForged::Networking {
                     keyExchange.SetRemotePublicKey(remotePub);
 
                     KeyExchange::KeyBuffer rxKey, txKey;
-                    if (!keyExchange.DeriveSharedKey(true, rxKey, txKey)) {
+                    if (!keyExchange.DeriveSharedKey(isServerRole_, rxKey, txKey)) {
                         RF_NETWORK_ERROR("Key derivation failed for {}", endpoint.ToString());
                         return;
                     }
-
                     secureChannel.Initialize(rxKey, txKey);
                     handshakeComplete = true;
-                    RF_NETWORK_INFO("Handshake complete with {}", endpoint.ToString());
-
-                    // echo our pubkey back to complete the mutual exchange
-                    if (sendCallback) {
-                        const auto& pub = GetLocalPublicKey();
-                        sendCallback(endpoint, std::vector<uint8_t>(pub.begin(), pub.end()));
-                    }
+                    RF_NETWORK_INFO("Handshake complete (role: {}) with {}",
+                        isServerRole_ ? "server" : "client", endpoint.ToString());
                     return;
                 }
                 else {
@@ -183,65 +206,65 @@ namespace RiftForged::Networking {
                 }
             }
 
-            // ---- Secure path: decrypt ----
+            // ---- Secure path: decrypt whole frame ----
             std::vector<uint8_t> decrypted;
             if (!secureChannel.Decrypt(raw, decrypted, nonceRx++)) {
                 RF_NETWORK_WARN("Decryption failed from {}", endpoint.ToString());
                 return;
             }
 
-            if (decrypted.size() < sizeof(ReliablePacketHeader)) {
-                RF_NETWORK_WARN("[{}] Decrypted too small", endpoint.ToString());
+            // ---- Parse outer+reliable headers, update reliability, extract body ----
+            PacketType pktId{};
+            std::vector<uint8_t> bodyCompressed;
+            if (!UDPReliabilityProtocol::ProcessIncomingWire(
+                reliabilityState,
+                decrypted.data(),
+                static_cast<uint32_t>(decrypted.size()),
+                pktId,
+                bodyCompressed))
+            {
+                // Could be duplicate, out-of-window, or parse failure; log if needed
                 return;
             }
 
-            // ---- Peel reliable header ----
-            ReliablePacketHeader header{};
-            std::memcpy(&header, decrypted.data(), sizeof(ReliablePacketHeader));
-
-            // TODO: update reliability state from header (acks) if not handled elsewhere
+            if (bodyCompressed.empty()) {
+                RF_NETWORK_WARN("[{}] Empty payload after framing parse", endpoint.ToString());
+                return;
+            }
 
             // ---- Decompress app payload ----
-            const uint8_t* compBegin = decrypted.data() + sizeof(ReliablePacketHeader);
-            const size_t   compSize = decrypted.size() - sizeof(ReliablePacketHeader);
-
             std::vector<uint8_t> decompressed;
             {
                 Compressor decompressor(std::make_unique<LZ4Algorithm>());
                 try {
-                    decompressed = decompressor.decompress({ compBegin, compBegin + compSize });
+                    decompressed = decompressor.decompress(bodyCompressed);
                 }
                 catch (const std::exception& ex) {
                     RF_NETWORK_ERROR("[{}] Decompression failed: {}", endpoint.ToString(), ex.what());
                     return;
                 }
             }
-
             if (decompressed.empty()) {
                 RF_NETWORK_WARN("[{}] Empty decompressed payload", endpoint.ToString());
                 return;
             }
 
             // ---- App dispatch ----
-            const uint8_t* body = decompressed.data();
-            const size_t   bodyLen = decompressed.size();
-            const uint8_t  pktType = header.packetType;
-
             if (appCallback) {
-                // Forward to application/engine layer with endpoint key
-                appCallback(endpoint.ToString(), pktType, body, bodyLen);
+                appCallback(endpoint.ToString(),
+                    static_cast<uint8_t>(pktId),
+                    decompressed.data(),
+                    decompressed.size());
                 return;
             }
 
-            // ---- Fallback (legacy dev path): log and echo ----
+            // ---- Fallback echo (dev path) ----
             {
-                std::string msg(body, body + bodyLen);
+                std::string msg(reinterpret_cast<const char*>(decompressed.data()), decompressed.size());
                 RF_NETWORK_INFO("[{}] > {}", endpoint.ToString(), msg);
 
                 std::string echoStr = "[ECHO] " + msg;
                 std::vector<uint8_t> echoVec(echoStr.begin(), echoStr.end());
-
-                // Keep using your existing PacketType::EchoTest for compatibility
                 SendReliable(echoVec, static_cast<uint8_t>(PacketType::EchoTest));
             }
 
@@ -250,6 +273,8 @@ namespace RiftForged::Networking {
             RF_NETWORK_ERROR("Exception in HandleRawPacket: {}", ex.what());
         }
     }
+
+    // ----------------- Key exchange (manual path) -----------------
 
     uint64_t GenerateSecureRandomNonce64() {
         uint64_t result;
@@ -266,7 +291,6 @@ namespace RiftForged::Networking {
             RF_NETWORK_ERROR("Manual key exchange failed for {}", endpoint.ToString());
             return;
         }
-
         secureChannel.Initialize(rxKey, txKey);
         handshakeComplete = true;
         RF_NETWORK_INFO("Manual handshake complete with {}", endpoint.ToString());

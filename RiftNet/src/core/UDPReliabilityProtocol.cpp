@@ -1,36 +1,171 @@
 ﻿#include "../../include/core/UDPReliabilityProtocol.hpp"
+#include "../../include/core/protocols.hpp"
 #include <cstring>
 #include <algorithm>
 #include <cmath>
 
+using namespace RiftNet::Protocol;
+
 namespace RiftForged::Networking {
 
     namespace {
-
-        inline bool IsSequenceMoreRecent(SequenceNumber s1, SequenceNumber s2) {
-            constexpr SequenceNumber halfRange = (static_cast<SequenceNumber>(-1) / 2) + 1;
-            return ((s1 > s2) && (s1 - s2 < halfRange)) ||
-                ((s2 > s1) && (s2 - s1 >= halfRange));
-        }
-
-        inline void ApplyRTTSampleUnlocked(ReliableConnectionState& state, float sampleRTT_ms) {
-            if (state.isFirstRTTSample) {
-                state.smoothedRTT_ms = sampleRTT_ms;
-                state.rttVariance_ms = sampleRTT_ms / 2.0f;
-                state.isFirstRTTSample = false;
-            }
-            else {
-                float delta = sampleRTT_ms - state.smoothedRTT_ms;
-                state.smoothedRTT_ms += RTT_ALPHA * delta;
-                state.rttVariance_ms += RTT_BETA * (std::abs(delta) - state.rttVariance_ms);
-            }
-
-            state.retransmissionTimeout_ms = std::clamp(
-                state.smoothedRTT_ms + RTO_K * state.rttVariance_ms,
-                MIN_RTO_MS, MAX_RTO_MS);
-        }
+        constexpr uint16_t OUTER_HDR_SIZE = static_cast<uint16_t>(HEADER_WIRE_SIZE);
+        constexpr uint16_t REL_HDR_SIZE = static_cast<uint16_t>(RELIABLE_HDR_WIRE_SIZE);
     }
 
+    // ----------------- Size math -----------------
+    constexpr uint16_t UDPReliabilityProtocol::MaxBodySize() {
+        // 1024 - outer(11) - reliable(17)
+        return static_cast<uint16_t>(MAX_PACKET_SIZE - OUTER_HDR_SIZE - REL_HDR_SIZE);
+    }
+
+    // ----------------- Helpers -------------------
+    inline bool UDPReliabilityProtocol::IsSequenceMoreRecent(SequenceNumber s1, SequenceNumber s2) {
+        constexpr SequenceNumber halfRange = (static_cast<SequenceNumber>(-1) / 2) + 1;
+        return ((s1 > s2) && (s1 - s2 < halfRange)) || ((s2 > s1) && (s2 - s1 >= halfRange));
+    }
+
+    void UDPReliabilityProtocol::ApplyRTTSampleUnlocked(ReliableConnectionState& state, float sampleRTT_ms) {
+        if (state.isFirstRTTSample) {
+            state.smoothedRTT_ms = sampleRTT_ms;
+            state.rttVariance_ms = sampleRTT_ms / 2.0f;
+            state.isFirstRTTSample = false;
+        }
+        else {
+            const float delta = sampleRTT_ms - state.smoothedRTT_ms;
+            state.smoothedRTT_ms += RTT_ALPHA * delta;
+            state.rttVariance_ms += RTT_BETA * (std::abs(delta) - state.rttVariance_ms);
+        }
+        state.retransmissionTimeout_ms = std::clamp(
+            state.smoothedRTT_ms + RTO_K * state.rttVariance_ms,
+            MIN_RTO_MS, MAX_RTO_MS);
+    }
+
+    // ----------------- Wire IO -------------------
+    bool UDPReliabilityProtocol::WriteFramedReliablePacket(
+        std::vector<uint8_t>& outWire,
+        PacketType packetId,
+        const ReliablePacketHeader& relHdr,
+        const uint8_t* payload, uint16_t payloadLen)
+    {
+        const uint16_t totalPayload = static_cast<uint16_t>(REL_HDR_SIZE + payloadLen);
+        const uint16_t totalWire = static_cast<uint16_t>(OUTER_HDR_SIZE + totalPayload);
+        if (totalWire > MAX_PACKET_SIZE) return false;
+
+        outWire.resize(totalWire);
+
+        // Outer header (11 bytes)
+        PacketHeader outer{};
+        outer.magic = PROTOCOL_MAGIC;
+        outer.version = PROTOCOL_VERSION;
+        outer.length = totalPayload;         // payload after outer header
+        outer.type = packetId;
+        outer.seq = relHdr.seq;          // mirror reliable seq for quick filtering
+
+        serialize_header(outer, outWire.data());
+
+        // Reliable header (17 bytes)
+        serialize_reliable_header(relHdr, outWire.data() + OUTER_HDR_SIZE);
+
+        // Body
+        if (payloadLen) {
+            std::memcpy(outWire.data() + OUTER_HDR_SIZE + REL_HDR_SIZE, payload, payloadLen);
+        }
+        return true;
+    }
+
+    bool UDPReliabilityProtocol::ReadFramedReliablePacket(
+        const uint8_t* wire, uint32_t wireLen,
+        PacketHeader& outOuter,
+        ReliablePacketHeader& outRel,
+        const uint8_t*& outPayload,
+        uint16_t& outPayloadLen)
+    {
+        if (wireLen < OUTER_HDR_SIZE + REL_HDR_SIZE) return false;
+
+        // Parse outer header
+        auto [hdr, err] = parse_header(wire, wireLen);
+        if (err != ParseError::None) return false;
+        outOuter = hdr;
+
+        if (wireLen < OUTER_HDR_SIZE + outOuter.length) return false;
+        if (outOuter.length < REL_HDR_SIZE) return false;
+
+        // Parse reliable header
+        auto [rel, rerr] = parse_reliable_header(wire + OUTER_HDR_SIZE, outOuter.length);
+        if (rerr != ReliableParseError::None) return false;
+        outRel = rel;
+
+        // Body slice
+        outPayloadLen = static_cast<uint16_t>(outOuter.length - REL_HDR_SIZE);
+        outPayload = wire + OUTER_HDR_SIZE + REL_HDR_SIZE;
+        return true;
+    }
+
+    // ----------------- New high-level API -----------------
+    std::vector<std::vector<uint8_t>> UDPReliabilityProtocol::PrepareOutgoingPacketsFramed(
+        ReliableConnectionState& state,
+        PacketType packetTypes,
+        const uint8_t* payload,
+        uint32_t payloadSize,
+        uint64_t nonce)
+    {
+        std::lock_guard<std::mutex> lock(state.internalStateMutex);
+        std::vector<std::vector<uint8_t>> packets;
+
+        // enforce outer cap (optional: chunk if desired)
+        if (payloadSize > MaxBodySize()) {
+            payloadSize = MaxBodySize(); // clamp for now
+        }
+
+        ReliablePacketHeader relHdr{
+            /*seq*/        state.nextOutgoingSequenceNumber++,
+            /*ack*/        state.highestReceivedSequenceNumber,
+            /*ackBitfield*/state.receivedSequenceBitfield,
+            /*type*/       packetTypes,            // mirror outer
+            /*nonce*/      nonce
+        };
+
+        std::vector<uint8_t> wire;
+        if (!WriteFramedReliablePacket(wire, packetTypes, relHdr, payload, static_cast<uint16_t>(payloadSize))) {
+            return packets;
+        }
+
+        // Track inflight (store full wire)
+        state.unacknowledgedSentPackets.emplace_back(
+            relHdr.seq,
+            packetTypes,
+            nonce,
+            wire,
+            ReliableConnectionState::NowMs()
+        );
+
+        packets.emplace_back(std::move(wire));
+        return packets;
+    }
+
+    bool UDPReliabilityProtocol::ProcessIncomingWire(
+        ReliableConnectionState& state,
+        const uint8_t* wire,
+        uint32_t wireLen,
+        PacketType& outPacketId,
+        std::vector<uint8_t>& outPayload)
+    {
+        outPayload.clear();
+        PacketHeader         outer{};
+        ReliablePacketHeader rel{};
+        const uint8_t* bodyPtr = nullptr;
+        uint16_t             bodyLen = 0;
+
+        if (!ReadFramedReliablePacket(wire, wireLen, outer, rel, bodyPtr, bodyLen)) {
+            return false;
+        }
+
+        outPacketId = outer.type; // already PacketType
+        return ProcessIncomingHeader(state, rel, bodyPtr, bodyLen, outPayload);
+    }
+
+    // ----------------- Existing API (rewired internally) -----------------
     std::vector<std::vector<uint8_t>> UDPReliabilityProtocol::PrepareOutgoingPackets(
         ReliableConnectionState& state,
         const uint8_t* payload,
@@ -38,30 +173,12 @@ namespace RiftForged::Networking {
         uint8_t packetType,
         uint64_t nonce)
     {
-        std::lock_guard<std::mutex> lock(state.internalStateMutex);
-        std::vector<std::vector<uint8_t>> packets;
-
-        ReliablePacketHeader header{
-            .sequenceNumber = state.nextOutgoingSequenceNumber++,
-            .ackNumber = state.highestReceivedSequenceNumber,
-            .ackBitfield = state.receivedSequenceBitfield,
-            .packetType = packetType,
-            .nonce = nonce
-        };
-
-        const size_t headerSize = sizeof(ReliablePacketHeader);
-        std::vector<uint8_t> buffer(headerSize + payloadSize);
-        std::memcpy(buffer.data(), &header, headerSize);
-        if (payload && payloadSize > 0) {
-            std::memcpy(buffer.data() + headerSize, payload, payloadSize);
-        }
-
-        state.unacknowledgedSentPackets.emplace_back(
-            header.sequenceNumber, packetType, nonce, buffer, state.GetCurrentTime()
+        // Backwards-compatible: build framed using packetType as PacketID
+        return PrepareOutgoingPacketsFramed(
+            state,
+            static_cast<PacketType>(packetType),
+            payload, payloadSize, nonce
         );
-
-        packets.push_back(std::move(buffer));
-        return packets;
     }
 
     bool UDPReliabilityProtocol::ProcessIncomingHeader(
@@ -74,20 +191,31 @@ namespace RiftForged::Networking {
         std::lock_guard<std::mutex> lock(state.internalStateMutex);
         state.lastPacketReceivedTime = std::chrono::steady_clock::now();
 
-        // ACK processing
-        for (auto it = state.unacknowledgedSentPackets.begin(); it != state.unacknowledgedSentPackets.end();) {
+        // ACK processing for outbound queue
+        for (auto it = state.unacknowledgedSentPackets.begin();
+            it != state.unacknowledgedSentPackets.end(); )
+        {
             const auto& sent = *it;
-            bool isAcked = (header.ackNumber == sent.sequenceNumber) ||
-                (IsSequenceMoreRecent(header.ackNumber, sent.sequenceNumber) &&
-                    ((header.ackBitfield >> (header.ackNumber - sent.sequenceNumber - 1)) & 1));
 
-            if (isAcked) {
+            bool ackMatch = false;
+            if (header.ack == sent.sequenceNumber) {
+                ackMatch = true;
+            }
+            else if (IsSequenceMoreRecent(header.ack, sent.sequenceNumber)) {
+                const uint16_t diff = static_cast<uint16_t>(header.ack - sent.sequenceNumber);
+                if (diff >= 1 && diff <= 32) {
+                    ackMatch = ((header.ackBitfield >> (diff - 1)) & 1) != 0;
+                }
+            }
+
+            if (ackMatch) {
+                // RTT sample only from first transmission (classic approach)
                 if (sent.retries == 0) {
-                    float rtt = static_cast<float>(
+                    const float rtt = static_cast<float>(
                         std::chrono::duration_cast<std::chrono::milliseconds>(
-                            state.lastPacketReceivedTime - std::chrono::steady_clock::time_point(std::chrono::milliseconds(sent.timeSent))
-                        ).count()
-                        );
+                            state.lastPacketReceivedTime -
+                            std::chrono::steady_clock::time_point(std::chrono::milliseconds(sent.timeSentMs))
+                        ).count());
                     ApplyRTTSampleUnlocked(state, rtt);
                 }
                 it = state.unacknowledgedSentPackets.erase(it);
@@ -97,28 +225,40 @@ namespace RiftForged::Networking {
             }
         }
 
-        // Sequence handling
-        if (IsSequenceMoreRecent(header.sequenceNumber, state.highestReceivedSequenceNumber)) {
-            uint32_t diff = header.sequenceNumber - state.highestReceivedSequenceNumber;
-            state.receivedSequenceBitfield = (diff < 32) ? state.receivedSequenceBitfield << diff : 0;
-            state.receivedSequenceBitfield |= 1;
-            state.highestReceivedSequenceNumber = header.sequenceNumber;
+        // Sequence window update
+        if (IsSequenceMoreRecent(header.seq, state.highestReceivedSequenceNumber)) {
+            const uint32_t diff = static_cast<uint32_t>(header.seq - state.highestReceivedSequenceNumber);
+            state.receivedSequenceBitfield = (diff < 32) ? (state.receivedSequenceBitfield << diff) : 0u;
+            state.receivedSequenceBitfield |= 1u;
+            state.highestReceivedSequenceNumber = header.seq;
         }
         else {
-            uint32_t diff = state.highestReceivedSequenceNumber - header.sequenceNumber;
+            const uint32_t diff = static_cast<uint32_t>(state.highestReceivedSequenceNumber - header.seq);
             if (diff < 32) {
-                if ((state.receivedSequenceBitfield >> diff) & 1) return false;
-                state.receivedSequenceBitfield |= (1 << diff);
+                // duplicate?
+                if ((state.receivedSequenceBitfield >> diff) & 1u) {
+                    // already seen → ignore body; still accept for ACKing
+                    state.hasPendingAckToSend = true;
+                    return false;
+                }
+                state.receivedSequenceBitfield |= (1u << diff);
             }
             else {
+                // too old to represent
                 return false;
             }
         }
 
-        if (payloadLength > 0) {
+        // Body copy (still compressed at this layer)
+        if (packetPayload && payloadLength > 0) {
             outPayload.assign(packetPayload, packetPayload + payloadLength);
         }
+        else {
+            outPayload.clear();
+        }
 
+        // we owe an ACK for this inbound
+        state.hasPendingAckToSend = true;
         return true;
     }
 
@@ -144,28 +284,27 @@ namespace RiftForged::Networking {
         std::lock_guard<std::mutex> lock(state.internalStateMutex);
 
         for (auto& packet : state.unacknowledgedSentPackets) {
-            float elapsed = static_cast<float>(
+            const float elapsed = static_cast<float>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now - std::chrono::steady_clock::time_point(std::chrono::milliseconds(packet.timeSent))
+                    now - std::chrono::steady_clock::time_point(std::chrono::milliseconds(packet.timeSentMs))
                 ).count());
 
-            if (elapsed >= state.retransmissionTimeout_ms) {
-                if (state.ShouldDropPacket(packet.retries)) {
-                    state.connectionDroppedByMaxRetries = true;
-                    state.isConnected = false;
-                    return;
-                }
+            if (elapsed < state.retransmissionTimeout_ms) continue;
 
-                sendFunc(packet.data);
-                packet.timeSent = state.GetCurrentTime();
-                ++packet.retries;
-
-                // Exponential backoff
-                state.retransmissionTimeout_ms = std::clamp(
-                    state.retransmissionTimeout_ms * 2.0f,
-                    MIN_RTO_MS, MAX_RTO_MS
-                );
+            if (state.ShouldDropPacket(packet.retries)) {
+                state.connectionDroppedByMaxRetries = true;
+                state.isConnected = false;
+                return;
             }
+
+            // resend the full wire
+            sendFunc(packet.data);
+            packet.timeSentMs = ReliableConnectionState::NowMs();
+            ++packet.retries;
+
+            // backoff
+            state.retransmissionTimeout_ms = std::clamp(
+                state.retransmissionTimeout_ms * 2.0f, MIN_RTO_MS, MAX_RTO_MS);
         }
     }
 
@@ -176,7 +315,7 @@ namespace RiftForged::Networking {
     {
         std::lock_guard<std::mutex> lock(state.internalStateMutex);
         return state.connectionDroppedByMaxRetries ||
-            std::chrono::duration_cast<std::chrono::seconds>(now - state.lastPacketReceivedTime).count() > timeoutSeconds;
+            (std::chrono::duration_cast<std::chrono::seconds>(now - state.lastPacketReceivedTime).count() > timeoutSeconds);
     }
 
-}
+} // namespace RiftForged::Networking

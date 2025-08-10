@@ -8,7 +8,7 @@
 #include <chrono>
 #include <mutex>
 #include <iostream>
-
+#include <riftencrypt.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -132,6 +132,7 @@ void ReliabilityUpdateLoop() {
 
 int main() {
     Logger::Init();
+    void EnsureSodiumInit();
     cryptoThreadPool = std::make_shared<TaskThreadPool>(12);
     udpSocket = std::make_unique<UDPSocketAsync>();
     RF_NETWORK_INFO("=== RiftNet UDP Secure Server ===");
