@@ -222,13 +222,15 @@ namespace RiftForged::Networking {
                 static_cast<uint32_t>(decrypted.size()),
                 pktId,
                 bodyCompressed))
-            {
-                // Could be duplicate, out-of-window, or parse failure; log if needed
-                return;
-            }
+                if (pktId == PacketType::ReliableAck ||
+                    (pktId == PacketType::Heartbeat && bodyCompressed.empty())) {
+                    // normal control frames; nothing to decompress/dispatch
+                    return;
+                }   
 
             if (bodyCompressed.empty()) {
-                RF_NETWORK_WARN("[{}] Empty payload after framing parse", endpoint.ToString());
+                RF_NETWORK_DEBUG("[{}] Empty payload (non-ACK type={})",
+                    endpoint.ToString(), static_cast<int>(pktId));
                 return;
             }
 

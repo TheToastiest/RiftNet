@@ -4,8 +4,9 @@
 #include <cstddef>
 #include <functional>
 #include <vector>
-#include "RiftNetWire.hpp"
+#include "protocols.hpp"
 
+using namespace RiftNet::Protocol;
 namespace RiftNet {
 
     using BroadcastFn = std::function<void(const uint8_t* bytes, size_t len)>;
@@ -18,7 +19,7 @@ namespace RiftNet {
         // Called each authoritative tick. If it returns true, fill sh+payload to broadcast.
         virtual bool Tick(uint64_t frame_idx,
             int64_t  t_pre_sim_qpc,       // for logging
-            SnapshotHeader& sh,
+            PacketHeader& sh,
             std::vector<uint8_t>& payload // engine fills
         ) = 0;
 

@@ -62,19 +62,10 @@
     <ClInclude Include="include\core\Connection.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\INetEventListener.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\IPacket.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
     <ClInclude Include="include\core\IPacketProcessor.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\core\protocols.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\PacketProcessor.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\core\RiftNetEngine.hpp">
@@ -98,12 +89,6 @@
     <ClInclude Include="include\core\UDPReliabilityProtocol.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\ReliableConnectionState.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\ReliablePacketHeader.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
     <ClInclude Include="include\core\PacketEncryptCompress.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
@@ -119,19 +104,10 @@
     <ClInclude Include="include\core\SecureChannel.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\PacketTypes.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\ReliableTypes.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
     <ClInclude Include="include\core\ThreadPool.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\core\RiftGlobals.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\RiftNetWire.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
   </ItemGroup>

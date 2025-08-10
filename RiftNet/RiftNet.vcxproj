@@ -149,24 +149,16 @@
   <ItemGroup>
     <ClInclude Include="include\core\Connection.hpp" />
     <ClInclude Include="include\core\HandshakePacket.hpp" />
-    <ClInclude Include="include\core\INetEventListener.hpp" />
     <ClInclude Include="include\core\INetworkIO.hpp" />
     <ClInclude Include="include\core\INetworkIOEvents.hpp" />
-    <ClInclude Include="include\core\IPacket.hpp" />
     <ClInclude Include="include\core\IPacketProcessor.hpp" />
     <ClInclude Include="include\core\KeyExchange.hpp" />
     <ClInclude Include="include\core\Logger.hpp" />
     <ClInclude Include="include\core\NetworkEndpoint.hpp" />
     <ClInclude Include="include\core\protocols.hpp" />
     <ClInclude Include="include\core\PacketEncryptCompress.hpp" />
-    <ClInclude Include="include\core\PacketProcessor.hpp" />
-    <ClInclude Include="include\core\PacketTypes.hpp" />
-    <ClInclude Include="include\core\ReliableConnectionState.hpp" />
-    <ClInclude Include="include\core\ReliablePacketHeader.hpp" />
-    <ClInclude Include="include\core\ReliableTypes.hpp" />
     <ClInclude Include="include\core\RiftGlobals.hpp" />
     <ClInclude Include="include\core\RiftNetEngine.hpp" />
-    <ClInclude Include="include\core\RiftNetWire.hpp" />
     <ClInclude Include="include\core\SecureChannel.hpp" />
     <ClInclude Include="include\core\ThreadPool.hpp" />
     <ClInclude Include="include\core\UDPReliabilityProtocol.hpp" />

@@ -194,7 +194,7 @@ namespace RiftNetBenchClient {
                     g_onSnap(hdrOut, payload, paylen);
                 }
                 break;
-            case PacketType::Heartbeat:
+            case PacketType::ReliableAck:
             case PacketType::EchoTest:
                 // optional
                 break;

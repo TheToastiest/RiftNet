@@ -66,7 +66,8 @@ namespace RiftForged::Networking {
 
         // Reliable header (17 bytes)
         serialize_reliable_header(relHdr, outWire.data() + OUTER_HDR_SIZE);
-
+        ReliablePacketHeader rel = relHdr;
+        rel.type = packetId;         // reliable type
         // Body
         if (payloadLen) {
             std::memcpy(outWire.data() + OUTER_HDR_SIZE + REL_HDR_SIZE, payload, payloadLen);
@@ -160,8 +161,10 @@ namespace RiftForged::Networking {
         if (!ReadFramedReliablePacket(wire, wireLen, outer, rel, bodyPtr, bodyLen)) {
             return false;
         }
+        RF_NETWORK_DEBUG("IN: type={} len={} rel(seq={}, ack={}, bits=0x{:08X})",
+            static_cast<int>(outPacketId), bodyLen, rel.seq, rel.ack, rel.ackBitfield);
 
-        outPacketId = outer.type; // already PacketType
+        outPacketId = rel.type; // already PacketType
         return ProcessIncomingHeader(state, rel, bodyPtr, bodyLen, outPayload);
     }
 
@@ -256,11 +259,17 @@ namespace RiftForged::Networking {
         else {
             outPayload.clear();
         }
+        const bool isAckOnly = (header.type == PacketType::ReliableAck) && (payloadLength == 0);
+        // allow heartbeat to be zero-length too (if you use it)
+        const bool isZeroLenCtrl = (payloadLength == 0) &&
+            (header.type == PacketType::ReliableAck || header.type == PacketType::Heartbeat);
 
-        // we owe an ACK for this inbound
-        state.hasPendingAckToSend = true;
+        if (!isZeroLenCtrl) {
+            state.hasPendingAckToSend = true;
+        }
         return true;
     }
+
 
     bool UDPReliabilityProtocol::ShouldSendAck(
         ReliableConnectionState& state,
