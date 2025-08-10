@@ -7,11 +7,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-
-#include "ReliableConnectionState.hpp"  // brings ReliablePacketHeader, ReliableConnectionState, RTT constants
 #include "protocols.hpp"             // SequenceNumber
 #include "Logger.hpp"
-//#include "RiftNetWire.hpp"              // <-- your header that defines RiftNet::PacketHeader, MAX_PACKET_SIZE, PacketID
 
 using namespace RiftNet::Protocol;
 

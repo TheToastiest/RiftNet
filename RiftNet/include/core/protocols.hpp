@@ -1,3 +1,4 @@
+// include/riftnet/protocols.hpp
 #pragma once
 
 #include <cstdint>
@@ -7,17 +8,18 @@
 #include <list>
 #include <chrono>
 #include <mutex>
+#include <cstring>
+#include <array>
 
 namespace RiftNet::Protocol {
 
     // =========================
     // Protocol constants
     // =========================
-    constexpr uint32_t PROTOCOL_MAGIC = 0x52494654u; // 'RIFT' (wire: 0x52 0x49 0x46 0x54)
+    constexpr uint32_t PROTOCOL_MAGIC = 0x52494654u; // 'RIFT'
     constexpr uint16_t PROTOCOL_VERSION = 0x0001;
 
     constexpr std::size_t MAX_PACKET_SIZE = 1024;
-
     // Header is: 4(magic) + 2(version) + 2(length) + 1(type) + 2(seq) = 11 bytes
     constexpr std::size_t HEADER_WIRE_SIZE = 11;
     constexpr std::size_t MAX_PAYLOAD_SIZE =
@@ -28,14 +30,16 @@ namespace RiftNet::Protocol {
     // =========================
     using SequenceNumber = uint16_t;
 
+    // Source of truth for packet kinds on the wire.
     enum class PacketType : uint8_t {
         Handshake = 0x00,
         ReliableAck = 0x01,
-        PlayerAction = 0x02,
+        PlayerAction = 0x02, // (legacy alias: Input)
         ChatMessage = 0x03,
-        GameState = 0x04,
+        GameState = 0x04, // (legacy alias: Snapshot)
         Heartbeat = 0x05,
         EchoTest = 0x06,
+        TimeSync = 0x07, // added to cover bench S->C time sync
         Unknown = 0xFF
     };
 
@@ -114,9 +118,9 @@ namespace RiftNet::Protocol {
         h.type = static_cast<PacketType>(rawType);
         h.seq = be_read16(data + 9);
 
-        if (h.magic != PROTOCOL_MAGIC)   return { h, ParseError::BadMagic };
-        if (h.version != PROTOCOL_VERSION) return { h, ParseError::UnsupportedVer };
-        if (h.length > MAX_PAYLOAD_SIZE) return { h, ParseError::LengthTooLarge };
+        if (h.magic != PROTOCOL_MAGIC)    return { h, ParseError::BadMagic };
+        if (h.version != PROTOCOL_VERSION)  return { h, ParseError::UnsupportedVer };
+        if (h.length > MAX_PAYLOAD_SIZE)  return { h, ParseError::LengthTooLarge };
         return { h, ParseError::None };
     }
 
@@ -241,5 +245,56 @@ namespace RiftNet::Protocol {
             return retries >= MAX_PACKET_RETRIES;
         }
     };
+
+    // =========================
+    // These are packed payloads you can put inside the reliable/body.
+    // =========================
+    namespace Wire {
+#pragma pack(push,1)
+        // S->C: carry server QPC for offset estimation
+        struct MsgTimeSync {
+            uint64_t frame_idx;
+            int64_t  server_qpc_ticks;  // QueryPerformanceCounter ticks at send
+        };
+
+        // S->C: minimal bench snapshot header; payload follows (0..N bytes)
+        struct SnapshotHeader {
+            uint64_t frame_idx;
+            uint32_t entity_count; // optional
+        };
+
+        // C->S: example input packet; extend as needed
+        struct InputPkt {
+            uint64_t monotonic;
+            float    ax, ay;
+        };
+        struct HandshakeBody {
+            // Public key sent with PacketType::Handshake in the outer header.
+            std::array<uint8_t, 32> publicKey;
+        };
+#pragma pack(pop)
+        static_assert(sizeof(HandshakeBody) == 32, "HandshakeBody must be 32 bytes");
+
+        // Optional legacy helper: prefix a 1-byte PacketType in front of a payload buffer.
+        // NOTE: This is *not* the 11-byte protocol header; useful for composing an inner body.
+        inline void WriteSimplePayload(std::vector<uint8_t>& out,
+            PacketType t, const void* body, std::size_t len)
+        {
+            out.resize(1 + len);
+            out[0] = static_cast<uint8_t>(t);
+            if (len) std::memcpy(out.data() + 1, body, len);
+        }
+    } // namespace Wire
+
+    // =========================
+    // Legacy name aliases (for easy migration)
+    // =========================
+    namespace Legacy {
+        // Map older names to current PacketType semantics
+        constexpr PacketType Input = PacketType::PlayerAction; // C->S
+        constexpr PacketType Snapshot = PacketType::GameState;    // S->C
+        constexpr PacketType EchoTest = PacketType::EchoTest;
+        constexpr PacketType TimeSync = PacketType::TimeSync;     // S->C
+    }
 
 } // namespace RiftNet::Protocol

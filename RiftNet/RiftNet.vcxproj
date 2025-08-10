@@ -139,7 +139,6 @@
     <ClCompile Include="src\core\Connection.cpp" />
     <ClCompile Include="src\core\KeyExchange.cpp" />
     <ClCompile Include="src\core\Logger.cpp" />
-    <ClCompile Include="src\core\PacketProcessor.cpp" />
     <ClCompile Include="src\core\RiftNetEngine.cpp" />
     <ClCompile Include="src\core\SecureChannel.cpp" />
     <ClCompile Include="src\core\ThreadPool.cpp" />
@@ -148,7 +147,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\core\Connection.hpp" />
-    <ClInclude Include="include\core\HandshakePacket.hpp" />
     <ClInclude Include="include\core\INetworkIO.hpp" />
     <ClInclude Include="include\core\INetworkIOEvents.hpp" />
     <ClInclude Include="include\core\IPacketProcessor.hpp" />
@@ -156,7 +154,6 @@
     <ClInclude Include="include\core\Logger.hpp" />
     <ClInclude Include="include\core\NetworkEndpoint.hpp" />
     <ClInclude Include="include\core\protocols.hpp" />
-    <ClInclude Include="include\core\PacketEncryptCompress.hpp" />
     <ClInclude Include="include\core\RiftGlobals.hpp" />
     <ClInclude Include="include\core\RiftNetEngine.hpp" />
     <ClInclude Include="include\core\SecureChannel.hpp" />

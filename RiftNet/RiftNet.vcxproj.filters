@@ -33,9 +33,6 @@
     <ClCompile Include="src\core\Connection.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\PacketProcessor.cpp">
-      <Filter>src\core</Filter>
-    </ClCompile>
     <ClCompile Include="src\core\RiftNetEngine.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
@@ -89,13 +86,7 @@
     <ClInclude Include="include\core\UDPReliabilityProtocol.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\PacketEncryptCompress.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
     <ClInclude Include="include\core\KeyExchange.hpp">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\HandshakePacket.hpp">
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\platform\UDPSocketAsync.hpp">

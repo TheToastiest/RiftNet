@@ -5,12 +5,9 @@
 #include "Logger.hpp"
 #include "protocols.hpp"
 #include "NetworkEndpoint.hpp"
-#include "HandshakePacket.hpp"
 #include "UDPReliabilityProtocol.hpp"
-#include "PacketTypes.hpp"
 #include "SecureChannel.hpp"
 #include "KeyExchange.hpp"
-#include "ReliableTypes.hpp"
 #include <riftcompress.hpp>
 #include <functional>
 #include <memory>
