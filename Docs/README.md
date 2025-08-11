@@ -29,7 +29,7 @@ It was built from the ground up as a **philosophical counterpunch** to deceptive
 - ✅ Windows IOCP-based async UDP sockets
 - 🧩 Modular architecture — drop in/out encryption, compression, message layers
 - 🗝 Automatic key exchange + nonce tracking
-- 📬 ReliablePacketHeader structure for resend logic
+- 📬 protocols.hpp structure packet enum logic, UDPReliabilityProtocol.hpp handles reliable UDP logic
 - 📉 RTT/congestion tracking (inspired by RFC 6298 + Karn’s Algorithm)
 - 🔐 Compression/encryption can be toggled per message or channel
 - 🧵 Fully multithreaded — built for performance and truth at scale
