@@ -165,7 +165,6 @@ namespace RiftForged::Networking {
             static_cast<int>(outPacketId), bodyLen, rel.seq, rel.ack, rel.ackBitfield);
 
         outPacketId = rel.type; // already PacketType
-        outPacketId = outer.type; // mirror outer type
         return ProcessIncomingHeader(state, rel, bodyPtr, bodyLen, outPayload);
     }
 

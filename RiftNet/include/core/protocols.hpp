@@ -274,7 +274,16 @@ namespace RiftNet::Protocol {
         };
 #pragma pack(pop)
         static_assert(sizeof(HandshakeBody) == 32, "HandshakeBody must be 32 bytes");
-       
+
+        // Optional legacy helper: prefix a 1-byte PacketType in front of a payload buffer.
+        // NOTE: This is *not* the 11-byte protocol header; useful for composing an inner body.
+        inline void WriteSimplePayload(std::vector<uint8_t>& out,
+            PacketType t, const void* body, std::size_t len)
+        {
+            out.resize(1 + len);
+            out[0] = static_cast<uint8_t>(t);
+            if (len) std::memcpy(out.data() + 1, body, len);
+        }
     } // namespace Wire
 
     // =========================

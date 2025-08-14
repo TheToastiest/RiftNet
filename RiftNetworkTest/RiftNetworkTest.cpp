@@ -8,14 +8,13 @@
 #include <chrono>
 #include <mutex>
 #include <iostream>
-#include <array>
-
 #include <riftencrypt.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+
 #include "../RiftNet/include/core/Logger.hpp"
-#include "../RiftNet/include/core/protocols.hpp"
+#include "../RiftNet/include/core/NetworkTypes.hpp"
 #include "../RiftNet/include/core/INetworkIOEvents.hpp"
 #include "../RiftNet/include/core/INetworkIO.hpp"
 #include "../RiftNet/include/core/NetworkEndpoint.hpp"
@@ -28,8 +27,6 @@ using namespace RiftForged::Networking;
 using namespace RiftForged::Logging;
 using namespace RiftForged::Threading;
 
-namespace proto = RiftNet::Protocol;
-
 std::shared_ptr<TaskThreadPool> cryptoThreadPool = std::make_shared<TaskThreadPool>(8);
 static std::unordered_map<std::string, std::shared_ptr<Connection>> g_connectionMap;
 static std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_connectionTimestamps;
@@ -38,35 +35,12 @@ static std::atomic<bool> g_running = true;
 
 std::unique_ptr<UDPSocketAsync> udpSocket;
 
-static std::vector<uint8_t> BuildDatagram(proto::PacketType type,
-    uint16_t seq,
-    const void* body,
-    std::size_t body_len)
-{
-    std::vector<uint8_t> out;
-    out.resize(proto::HEADER_WIRE_SIZE + body_len);
-
-    proto::PacketHeader h{
-        proto::PROTOCOL_MAGIC,
-        proto::PROTOCOL_VERSION,
-        static_cast<uint16_t>(body_len),
-        type,
-        seq
-    };
-    proto::serialize_header(h, out.data());
-
-    if (body_len) {
-        std::memcpy(out.data() + proto::HEADER_WIRE_SIZE, body, body_len);
-    }
-    return out;
-}
-
 class PacketHandler : public INetworkIOEvents {
 public:
     void OnRawDataReceived(const NetworkEndpoint& sender,
         const uint8_t* data,
         uint32_t size,
-        OverlappedIOContext* /*context*/) override
+        OverlappedIOContext* context) override
     {
         std::string key = sender.ToString();
         std::shared_ptr<Connection> conn;
@@ -85,18 +59,8 @@ public:
                     udpSocket->SendData(recipient, packet.data(), static_cast<uint32_t>(packet.size()));
                     });
 
-                // === Proper handshake using protocols.hpp ===
-                // Build outer header + HandshakeBody payload (public key)
-                const auto& publicKey = newConn->GetLocalPublicKey(); // std::array<uint8_t,32>
-                proto::Wire::HandshakeBody hb{};
-                static_assert(sizeof(hb.publicKey) == 32, "pubkey size mismatch");
-                hb.publicKey = publicKey;
-
-                auto datagram = BuildDatagram(proto::PacketType::Handshake,
-                    /*seq*/0,
-                    &hb,
-                    sizeof(hb));
-                newConn->SendUnencrypted(datagram);
+                const auto& publicKey = newConn->GetLocalPublicKey();
+                newConn->SendUnencrypted(std::vector<uint8_t>(publicKey.begin(), publicKey.end()));
             }
 
             conn = g_connectionMap[key];
@@ -146,12 +110,9 @@ void ReliabilityUpdateLoop() {
                 });
 
             if (UDPReliabilityProtocol::ShouldSendAck(state, now)) {
+                constexpr uint8_t ACK_PACKET_TYPE = 6;
                 auto ackPackets = UDPReliabilityProtocol::PrepareOutgoingPackets(
-                    state,
-                    /*body*/ nullptr,
-                    /*body_len*/ 0,
-                    static_cast<uint8_t>(proto::PacketType::ReliableAck), // was 6 (magic)
-                    state.nextNonce++
+                    state, nullptr, 0, ACK_PACKET_TYPE, state.nextNonce++
                 );
 
                 for (auto& pkt : ackPackets) {

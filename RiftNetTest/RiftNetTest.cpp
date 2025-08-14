@@ -16,7 +16,8 @@
 
 #include "../RiftNet/include/core/KeyExchange.hpp"
 #include "../RiftNet/include/core/SecureChannel.hpp"
-#include "../RiftNet/include/core/protocols.hpp"
+#include "../RiftNet/include/core/ReliableTypes.hpp"
+#include "../RiftNet/include/core/ReliableConnectionState.hpp"
 #include "../RiftNet/include/core/UDPReliabilityProtocol.hpp"
 #include "RiftCompress.hpp"
 #include "riftencrypt.hpp"
@@ -167,7 +168,7 @@ void RunClient(const std::string& peerName, const std::string& ip, uint16_t port
                         auto plain = state.compressor.decompress(outPayload);
                         std::string msg(plain.begin(), plain.end());
 
-                        std::cout << "[" << peerName << "] Echo (type " << (int)recvHeader.type
+                        std::cout << "[" << peerName << "] Echo (type " << (int)recvHeader.packetType
                             << ", nonce " << recvHeader.nonce << "):\n" << msg << "\n";
 
                         state.lastRTT = state.connectionState.smoothedRTT_ms;

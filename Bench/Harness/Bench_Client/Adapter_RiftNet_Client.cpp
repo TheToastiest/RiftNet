@@ -9,16 +9,16 @@
 #include <memory>
 #include <chrono>
 #include <cstring>
-#include <array>
 
 #include "../../RiftNet/include/core/Logger.hpp"
-#include "../../RiftNet/include/core/protocols.hpp"
+#include "../../RiftNet/include/core/protocols.hpp"            // <- unified protocol/types
 #include "../../RiftNet/include/core/INetworkIOEvents.hpp"
 #include "../../RiftNet/include/core/NetworkEndpoint.hpp"
 #include "../../RiftNet/include/platform/UDPSocketAsync.hpp"
 
 #include "../../RiftNet/include/core/KeyExchange.hpp"
 #include "../../RiftNet/include/core/SecureChannel.hpp"
+// REMOVE: #include "../../RiftNet/include/core/ReliableTypes.hpp"
 #include "../../RiftNet/include/core/UDPReliabilityProtocol.hpp"
 
 #include "RiftCompress.hpp"
@@ -26,16 +26,11 @@
 
 #include "Bench_Client_Shared.hpp"
 
-using namespace RiftNet::Protocol::Wire;
+using namespace RiftNet::Protocol;
 using namespace RiftForged::Networking;
 using namespace RiftForged::Logging;
 
 namespace RiftNetBenchClient {
-    static constexpr uint32_t kCompressThresholdBytes = 48; // avoid tiny LZ4 frames
-    static_assert(sizeof(InputPkt) == 16, "InputPkt size changed");
-    static_assert(sizeof(SnapshotHeader) == 12, "SnapshotHeader size changed");
-    static_assert(HEADER_WIRE_SIZE == 11, "header size changed");
-    static_assert(RELIABLE_HDR_WIRE_SIZE == 17, "reliable header WIRE size changed");
 
     // ---- callbacks wired by Bench_Client.cpp
     static OnSnapshotFn  g_onSnap = nullptr;
@@ -114,33 +109,6 @@ namespace RiftNetBenchClient {
         return n >= 4 && p[0] == 0x04 && p[1] == 0x22 && p[2] == 0x4D && p[3] == 0x18;
     }
 
-    // Try to parse a header+body handshake; fallback to legacy 32B raw
-    static bool TryConsumeServerHandshake(PeerConnectionState& p, const uint8_t* data, uint32_t size) {
-        // Legacy: raw 32-byte server public key
-        if (size == 32) {
-            KeyExchange::KeyBuffer serverKey{};
-            std::memcpy(serverKey.data(), data, 32);
-            p.ke.SetRemotePublicKey(serverKey);
-            return true;
-        }
-
-        // New: PacketHeader + 32B body
-        if (size >= HEADER_WIRE_SIZE) {
-            auto [hdr, perr] = parse_header(data, size);
-            if (perr == ParseError::None &&
-                hdr.type == PacketType::Handshake &&
-                validate_sizes(hdr, size) &&
-                hdr.length == 32)
-            {
-                KeyExchange::KeyBuffer serverKey{};
-                std::memcpy(serverKey.data(), data + HEADER_WIRE_SIZE, 32);
-                p.ke.SetRemotePublicKey(serverKey);
-                return true;
-            }
-        }
-        return false;
-    }
-
     // ---------- IO adapter ----------
     class ClientIO : public INetworkIOEvents {
     public:
@@ -155,9 +123,13 @@ namespace RiftNetBenchClient {
 
             std::lock_guard<std::mutex> lock(p->mtx);
 
-            // --- handshake (accept both formats)
+            // --- handshake: expect 32B server pubkey ---
             if (p->state != WireState::SecureReady) {
-                if (p->state == WireState::SentClientPub && TryConsumeServerHandshake(*p, data, size)) {
+                if (size == 32 && p->state == WireState::SentClientPub) {
+                    KeyExchange::KeyBuffer serverKey{};
+                    std::memcpy(serverKey.data(), data, 32);
+                    p->ke.SetRemotePublicKey(serverKey);
+
                     KeyExchange::KeyBuffer rxKey{}, txKey{};
                     if (!p->ke.DeriveSharedKey(/*isServerRole=*/false, rxKey, txKey)) {
                         spdlog::error("[Client] Shared key failure.");
@@ -170,7 +142,7 @@ namespace RiftNetBenchClient {
                 return;
             }
 
-            // --- decrypt (small rolling window)
+            // --- decrypt (small rolling window) ---
             std::vector<uint8_t> cipher(data, data + size), plain;
             bool decrypted = false;
             for (uint64_t n = p->lastRxNonce + 1; n <= p->lastRxNonce + 5; ++n) {
@@ -178,7 +150,7 @@ namespace RiftNetBenchClient {
             }
             if (!decrypted) { spdlog::warn("[Client] Decryption failed. size={} nextRxNonce={}", size, p->lastRxNonce + 1); return; }
 
-            // --- framed reliability parse
+            // --- framed reliability parse ---
             PacketType pid{};
             std::vector<uint8_t> body; // may be empty (ACK) or compressed (LZ4)
             if (!UDPReliabilityProtocol::ProcessIncomingWire(
@@ -188,42 +160,43 @@ namespace RiftNetBenchClient {
                 return;
             }
 
-            // ACKs carry no body
+            // ACKs carry no body; nothing to decompress/dispatch
             if (pid == PacketType::ReliableAck) {
                 p->lastRTT = p->conn.smoothedRTT_ms;
                 p->lastRTO = p->conn.retransmissionTimeout_ms;
                 return;
             }
 
-            // --- decompress only if it looks like an LZ4 frame
+            // --- decompress only if it looks like an LZ4 frame ---
             std::vector<uint8_t> app;
             if (!body.empty() && looks_like_lz4_frame(body.data(), body.size())) {
-                try { app = p->comp.decompress(body); }
+                try {
+                    app = p->comp.decompress(body);
+                }
                 catch (const std::exception& ex) {
                     spdlog::error("[Client] Decompression failed: {}", ex.what());
                     return;
                 }
             }
             else {
-                app = std::move(body); // treat as raw
+                app = std::move(body); // treat as raw payload
             }
 
-            // --- dispatch
+            // --- dispatch ---
             switch (pid) {
-            case PacketType::GameState: { // S->C snapshot
-                if (g_onSnap && app.size() >= sizeof(Wire::SnapshotHeader)) {
-                    Wire::SnapshotHeader sh{};
+            case PacketType::GameState: // S->C snapshot
+                if (g_onSnap && app.size() >= sizeof(RiftNet::WireSnapshotHeader)) {
+                    RiftNet::WireSnapshotHeader sh{};
                     std::memcpy(&sh, app.data(), sizeof(sh));
                     const uint8_t* payload = app.data() + sizeof(sh);
                     const size_t   paylen = app.size() - sizeof(sh);
-                    // Convert if your callback wants your own SnapshotHeader; or just pass sh directly.
-                    SnapshotHeader hdrOut{}; hdrOut.frame_idx = sh.frame_idx; hdrOut.entity_count = sh.entity_count;
+                    SnapshotHeader hdrOut{}; hdrOut.frame_idx = sh.frame_idx;
                     g_onSnap(hdrOut, payload, paylen);
                 }
                 break;
-            }
+            case PacketType::ReliableAck:
             case PacketType::EchoTest:
-                // optional: handle pong
+                // optional
                 break;
             default:
                 break;
@@ -266,7 +239,7 @@ namespace RiftNetBenchClient {
 
         g_peer = std::make_unique<PeerConnectionState>();
 
-        // send our public key (32B) in the clear (legacy-compatible)
+        // send our public key (32B) in the clear
         {
             auto& p = *g_peer;
             const auto& pub = p.ke.GetLocalPublicKey();

@@ -215,31 +215,21 @@ namespace RiftForged::Networking {
 
             // ---- Parse outer+reliable headers, update reliability, extract body ----
             PacketType pktId{};
-
             std::vector<uint8_t> bodyCompressed;
-
-            const bool ok = UDPReliabilityProtocol::ProcessIncomingWire(
+            if (!UDPReliabilityProtocol::ProcessIncomingWire(
                 reliabilityState,
                 decrypted.data(),
                 static_cast<uint32_t>(decrypted.size()),
                 pktId,
-                bodyCompressed);
+                bodyCompressed))
+                if (pktId == PacketType::ReliableAck ||
+                    (pktId == PacketType::Heartbeat && bodyCompressed.empty())) {
+                    // normal control frames; nothing to decompress/dispatch
+                    return;
+                }   
 
-            // dup/out-of-window, or otherwise consumed by reliability → nothing to do
-            if (!ok) {
-                return;
-            }
-
-            // control frames expected to be empty
-            if (pktId == PacketType::ReliableAck ||
-                (pktId == PacketType::Heartbeat && bodyCompressed.empty()))
-            {
-                return;
-            }
-
-            // unexpected empties (real issue worth logging)
             if (bodyCompressed.empty()) {
-                RF_NETWORK_DEBUG("[{}] Empty payload (unexpected type={})",
+                RF_NETWORK_DEBUG("[{}] Empty payload (non-ACK type={})",
                     endpoint.ToString(), static_cast<int>(pktId));
                 return;
             }

@@ -9,8 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include "Bench_Client_Shared.hpp"
-#include "core/protocols.hpp"
-using namespace RiftNet::Protocol::Wire;
+
 QpcClock g_qpc;
 
 struct QpcRel {
