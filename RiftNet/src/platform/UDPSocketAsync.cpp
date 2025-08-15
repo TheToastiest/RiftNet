@@ -30,7 +30,7 @@ static unsigned int DetermineNumWorkerThreads() {
 static const unsigned int NUM_WORKER_THREADS_TO_CREATE = DetermineNumWorkerThreads();
 
 
-namespace RiftForged {
+namespace RiftNet {
     namespace Networking {
 
         // Constructor: Initializes member variables to a safe default state.

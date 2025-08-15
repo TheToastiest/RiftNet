@@ -6,7 +6,7 @@
 #include <vector>
 #include <riftencrypt.hpp>
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     // 32-byte symmetric key
     using KeyBuffer = std::array<uint8_t, 32>;

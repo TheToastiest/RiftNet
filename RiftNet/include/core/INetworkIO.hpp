@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace RiftForged {
+namespace RiftNet {
     namespace Networking {
 
         class INetworkIOEvents; // Forward declaration

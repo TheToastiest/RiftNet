@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string>
 
-namespace RiftForged {
+namespace RiftNet {
     namespace Networking {
 
         class INetworkIOEvents {

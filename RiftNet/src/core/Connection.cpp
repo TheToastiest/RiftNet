@@ -10,7 +10,7 @@
 
 using namespace RiftNet::Protocol;
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     Connection::Connection(const NetworkEndpoint& remote, bool isServerRole)
         : endpoint(remote)

@@ -24,7 +24,7 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-using namespace RiftForged::Networking;
+using namespace RiftNet::Networking;
 
 std::vector<uint8_t> generateSimulatedPayload(size_t count) {
     std::ostringstream oss;

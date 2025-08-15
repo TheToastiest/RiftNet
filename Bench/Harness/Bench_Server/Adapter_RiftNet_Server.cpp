@@ -13,20 +13,20 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "../../RiftNet/include/core/Logger.hpp"
-#include "../../RiftNet/include/core/protocols.hpp"            // <- unified protocol/types
-#include "../../RiftNet/include/core/INetworkIOEvents.hpp"
-#include "../../RiftNet/include/core/INetworkIO.hpp"
-#include "../../RiftNet/include/core/NetworkEndpoint.hpp"
-#include "../../RiftNet/include/platform/UDPSocketAsync.hpp"
-#include "../../RiftNet/include/core/Connection.hpp"
-#include "../../RiftNet/include/core/UDPReliabilityProtocol.hpp"
-#include "../../RiftNet/include/core/RiftGlobals.hpp"
+#include "../include/core/Logger.hpp"
+#include "../include/core/protocols.hpp"            // <- unified protocol/types
+#include "../include/core/INetworkIOEvents.hpp"
+#include "../include/core/INetworkIO.hpp"
+#include "../include/core/NetworkEndpoint.hpp"
+#include "../include/platform/UDPSocketAsync.hpp"
+#include "../include/core/Connection.hpp"
+#include "../include/core/UDPReliabilityProtocol.hpp"
+#include "../include/core/RiftGlobals.hpp"
 #include "Bench_Server_Shared.hpp"
 
 using namespace RiftNet::Protocol;
-using namespace RiftForged::Networking;
-using namespace RiftForged::Logging;
+using namespace RiftNet::Networking;
+using namespace RiftNet::Logging;
 
 namespace RiftNetBenchAdapter {
 

@@ -14,7 +14,7 @@
 
 
 #include "../RiftNet/include/core/Logger.hpp"
-#include "../RiftNet/include/core/NetworkTypes.hpp"
+//#include "../RiftNet/include/core/NetworkTypes.hpp"
 #include "../RiftNet/include/core/INetworkIOEvents.hpp"
 #include "../RiftNet/include/core/INetworkIO.hpp"
 #include "../RiftNet/include/core/NetworkEndpoint.hpp"
@@ -23,9 +23,9 @@
 #include "../RiftNet/include/core/UDPReliabilityProtocol.hpp"
 #include "../RiftNet/include/core/RiftGlobals.hpp"
 
-using namespace RiftForged::Networking;
-using namespace RiftForged::Logging;
-using namespace RiftForged::Threading;
+using namespace RiftNet::Networking;
+using namespace RiftNet::Logging;
+using namespace RiftNet::Threading;
 
 std::shared_ptr<TaskThreadPool> cryptoThreadPool = std::make_shared<TaskThreadPool>(8);
 static std::unordered_map<std::string, std::shared_ptr<Connection>> g_connectionMap;

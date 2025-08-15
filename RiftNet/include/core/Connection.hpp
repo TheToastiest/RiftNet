@@ -14,7 +14,7 @@
 #include <vector>
 #include <unordered_map>
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
 
     class Connection {

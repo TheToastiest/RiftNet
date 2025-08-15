@@ -6,7 +6,7 @@
 
 using namespace RiftNet::Protocol;
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     namespace {
         constexpr uint16_t OUTER_HDR_SIZE = static_cast<uint16_t>(HEADER_WIRE_SIZE);

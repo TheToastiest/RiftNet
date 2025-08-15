@@ -14,7 +14,7 @@
 // For SetThreadDescription, you might need to link against Kernel32.lib
 // and ensure you're compiling with a Windows SDK that supports it (Windows 10, version 1607+).
 #endif
-namespace RiftForged {
+namespace RiftNet {
         namespace Threading {
 
             // Constructor

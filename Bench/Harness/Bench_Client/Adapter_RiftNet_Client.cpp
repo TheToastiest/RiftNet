@@ -10,16 +10,16 @@
 #include <chrono>
 #include <cstring>
 
-#include "../../RiftNet/include/core/Logger.hpp"
-#include "../../RiftNet/include/core/protocols.hpp"            // <- unified protocol/types
-#include "../../RiftNet/include/core/INetworkIOEvents.hpp"
-#include "../../RiftNet/include/core/NetworkEndpoint.hpp"
-#include "../../RiftNet/include/platform/UDPSocketAsync.hpp"
+#include "../include/core/Logger.hpp"
+#include "../include/core/protocols.hpp"            // <- unified protocol/types
+#include "../../RiftNet/include/core/NetworkIOSystem.hpp"
+#include "../include/core/NetworkEndpoint.hpp"
+#include "../include/platform/UDPSocketAsync.hpp"
 
-#include "../../RiftNet/include/core/KeyExchange.hpp"
-#include "../../RiftNet/include/core/SecureChannel.hpp"
+#include "../include/core/KeyExchange.hpp"
+#include "../include/core/SecureChannel.hpp"
 // REMOVE: #include "../../RiftNet/include/core/ReliableTypes.hpp"
-#include "../../RiftNet/include/core/UDPReliabilityProtocol.hpp"
+#include "../include/core/UDPReliabilityProtocol.hpp"
 
 #include "RiftCompress.hpp"
 #include "riftencrypt.hpp" // EnsureSodiumInit symbol (ok if no-op)
@@ -27,8 +27,8 @@
 #include "Bench_Client_Shared.hpp"
 
 using namespace RiftNet::Protocol;
-using namespace RiftForged::Networking;
-using namespace RiftForged::Logging;
+using namespace RiftNet::Networking;
+using namespace RiftNet::Logging;
 
 namespace RiftNetBenchClient {
 

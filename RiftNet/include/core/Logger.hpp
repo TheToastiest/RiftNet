@@ -6,7 +6,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace RiftForged::Logging {
+namespace RiftNet::Logging {
 
     class Logger {
     public:
@@ -19,11 +19,11 @@ namespace RiftForged::Logging {
     };
 
     // Convenience macros
-#define RF_NETWORK_TRACE(...)    ::RiftForged::Logging::Logger::GetCoreLogger()->trace(__VA_ARGS__)
-#define RF_NETWORK_DEBUG(...)    ::RiftForged::Logging::Logger::GetCoreLogger()->debug(__VA_ARGS__)
-#define RF_NETWORK_INFO(...)     ::RiftForged::Logging::Logger::GetCoreLogger()->info(__VA_ARGS__)
-#define RF_NETWORK_WARN(...)     ::RiftForged::Logging::Logger::GetCoreLogger()->warn(__VA_ARGS__)
-#define RF_NETWORK_ERROR(...)    ::RiftForged::Logging::Logger::GetCoreLogger()->error(__VA_ARGS__)
-#define RF_NETWORK_CRITICAL(...) ::RiftForged::Logging::Logger::GetCoreLogger()->critical(__VA_ARGS__)
+#define RF_NETWORK_TRACE(...)    ::RiftNet::Logging::Logger::GetCoreLogger()->trace(__VA_ARGS__)
+#define RF_NETWORK_DEBUG(...)    ::RiftNet::Logging::Logger::GetCoreLogger()->debug(__VA_ARGS__)
+#define RF_NETWORK_INFO(...)     ::RiftNet::Logging::Logger::GetCoreLogger()->info(__VA_ARGS__)
+#define RF_NETWORK_WARN(...)     ::RiftNet::Logging::Logger::GetCoreLogger()->warn(__VA_ARGS__)
+#define RF_NETWORK_ERROR(...)    ::RiftNet::Logging::Logger::GetCoreLogger()->error(__VA_ARGS__)
+#define RF_NETWORK_CRITICAL(...) ::RiftNet::Logging::Logger::GetCoreLogger()->critical(__VA_ARGS__)
 
 }

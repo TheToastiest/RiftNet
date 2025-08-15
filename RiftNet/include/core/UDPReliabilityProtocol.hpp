@@ -12,7 +12,7 @@
 
 using namespace RiftNet::Protocol;
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     class UDPReliabilityProtocol {
     public:

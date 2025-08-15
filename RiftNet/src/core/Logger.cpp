@@ -1,7 +1,7 @@
 // File: src/core/Logger.cpp
 #include "../../include/core/Logger.hpp"
 
-namespace RiftForged::Logging {
+namespace RiftNet::Logging {
 
     std::shared_ptr<spdlog::logger> Logger::coreLogger;
 

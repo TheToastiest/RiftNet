@@ -1,7 +1,7 @@
 #include "../../include/core/SecureChannel.hpp"
 #include "riftencrypt.hpp"
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     SecureChannel::SecureChannel() = default;
 

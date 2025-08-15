@@ -4,7 +4,7 @@
 #include <sodium.h>
 #include <stdexcept>
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     KeyExchange::KeyExchange() {
         // Generate ephemeral X25519 keypair

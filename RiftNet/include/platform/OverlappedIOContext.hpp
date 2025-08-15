@@ -13,7 +13,7 @@
 
 const int DEFAULT_IOCP_UDP_BUFFER_SIZE = 4096; 
 
-namespace RiftForged {
+namespace RiftNet {
     namespace Networking {
 
         enum class IOOperationType {

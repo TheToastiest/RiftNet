@@ -30,7 +30,7 @@
 const int DEFAULT_UDP_BUFFER_SIZE_IOCP = 4096; 
 const int MAX_PENDING_RECEIVES_IOCP = 200;    
 
-namespace RiftForged {
+namespace RiftNet {
     namespace Networking {
 
         

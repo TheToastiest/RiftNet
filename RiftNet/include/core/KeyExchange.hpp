@@ -5,7 +5,7 @@
 #include <array>
 #include <sodium.h>
 
-namespace RiftForged::Networking {
+namespace RiftNet::Networking {
 
     class KeyExchange {
     public:

@@ -24,7 +24,7 @@
 #endif
 
 
-namespace RiftForged {
+namespace RiftNet {
         namespace Threading {
 
             class TaskThreadPool {
