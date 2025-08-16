@@ -1,0 +1,201 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="RiftNet">
+      <UniqueIdentifier>{c0975e07-5c16-4337-81d0-f0822945d7fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RiftNet\include">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\api">
+      <UniqueIdentifier>{48bacf1f-e524-4e42-9963-9af79b70c0dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RiftNet\include\RiftNet">
+      <UniqueIdentifier>{997122ad-581c-4f12-a72d-cae08de1d619}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core">
+      <UniqueIdentifier>{093b0c61-b903-4076-af7c-561ea575c2e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\protocol">
+      <UniqueIdentifier>{b416915f-af97-44a3-82f8-ceb8786f5bd7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\compresssion">
+      <UniqueIdentifier>{e349534e-cc4f-4865-bc34-06b89a51dd3f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\security">
+      <UniqueIdentifier>{6643e997-523d-4e4c-8666-55da59f124f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core\threading">
+      <UniqueIdentifier>{8ad5eb9b-1c8f-48c2-8871-78e551dd63b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\compresssion\compressor">
+      <UniqueIdentifier>{849ac40d-22b5-44a4-a66e-d746300a2880}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\security\handshake">
+      <UniqueIdentifier>{a5291eef-c354-4b94-abcd-a1d771c16bc6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\security\crypto">
+      <UniqueIdentifier>{1ab46766-62d6-476a-8d75-050e5d1a47b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\protocol\packetfactory">
+      <UniqueIdentifier>{44d28e58-3d71-4152-8c94-13aaff1a72f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\protocol\udpreliabilityprotocol">
+      <UniqueIdentifier>{e4d24561-8793-4356-aaaf-23c97c360a92}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\main">
+      <UniqueIdentifier>{c9f57aa4-4639-48d4-8450-04f63e71b532}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="pch_framework">
+      <UniqueIdentifier>{f911eb95-fb19-4889-9790-db98831789d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\utilities">
+      <UniqueIdentifier>{25e85312-4d82-475a-8cb6-35c20665d775}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\utilities\logger">
+      <UniqueIdentifier>{34439756-9ff9-45ae-b3b8-d4d9396022c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core\iocpmanager">
+      <UniqueIdentifier>{133de67f-0be0-41cb-b0de-10b0fc3deefe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core\riftnetio">
+      <UniqueIdentifier>{a15b00d4-88a0-4d3b-a701-31a9f72e1631}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core\networkio">
+      <UniqueIdentifier>{f564b94e-08b3-4712-b0fa-dc261b297653}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\protocol\packet">
+      <UniqueIdentifier>{fd79c453-1a39-4ae7-b5f8-0d274cd50bb5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core\connection">
+      <UniqueIdentifier>{4f301a29-8b1d-4b26-8752-3123c129223b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\security\secureconnection">
+      <UniqueIdentifier>{5cc8e161-64c0-4e43-9126-4d36723090e6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\RiftNet\RiftNet.hpp">
+      <Filter>RiftNet\include\RiftNet</Filter>
+    </ClInclude>
+    <ClInclude Include="include\RiftNet\RiftClient.hpp">
+      <Filter>RiftNet\include\RiftNet</Filter>
+    </ClInclude>
+    <ClInclude Include="include\RiftNet\RiftServer.hpp">
+      <Filter>RiftNet\include\RiftNet</Filter>
+    </ClInclude>
+    <ClInclude Include="include\RiftNet\RiftCommon.hpp">
+      <Filter>RiftNet\include\RiftNet</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\threading\Threading.hpp">
+      <Filter>src\core\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="src\compression\Compressor\Compressor.hpp">
+      <Filter>src\compresssion\compressor</Filter>
+    </ClInclude>
+    <ClInclude Include="src\security\Handshake\Handshake.hpp">
+      <Filter>src\security\handshake</Filter>
+    </ClInclude>
+    <ClInclude Include="src\security\Crypto\Encryptor.hpp">
+      <Filter>src\security\crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="src\protocol\PacketFactory\PacketFactory.hpp">
+      <Filter>src\protocol\packetfactory</Filter>
+    </ClInclude>
+    <ClInclude Include="src\protocol\UDPReliabilityProtocol\UDPReliabilityProtocol.hpp">
+      <Filter>src\protocol\udpreliabilityprotocol</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>pch_framework</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>pch_framework</Filter>
+    </ClInclude>
+    <ClInclude Include="utilities\logger\Logger.hpp">
+      <Filter>src\utilities\logger</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\iocpmanager\IOCPManager.hpp">
+      <Filter>src\core\iocpmanager</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\riftnetio\RiftNetIO.hpp">
+      <Filter>src\core\riftnetio</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\networkio\INetworkIO.hpp">
+      <Filter>src\core\networkio</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\networkio\NetworkEndpoint.hpp">
+      <Filter>src\core\networkio</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\networkio\IOContext.hpp">
+      <Filter>src\core\networkio</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\networkio\INetworkIOEvents.hpp">
+      <Filter>src\core\networkio</Filter>
+    </ClInclude>
+    <ClInclude Include="src\protocol\Packet\Packet.hpp">
+      <Filter>src\protocol\packet</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\connection\Connection.hpp">
+      <Filter>src\core\connection</Filter>
+    </ClInclude>
+    <ClInclude Include="src\security\secureconnection\secureconnection.hpp">
+      <Filter>src\security\secureconnection</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\core\threading\Threading.cpp">
+      <Filter>src\core\threading</Filter>
+    </ClCompile>
+    <ClCompile Include="src\compression\Compressor\Compressor.cpp">
+      <Filter>src\compresssion\compressor</Filter>
+    </ClCompile>
+    <ClCompile Include="src\security\Handshake\Handshake.cpp">
+      <Filter>src\security\handshake</Filter>
+    </ClCompile>
+    <ClCompile Include="src\security\Crypto\Encryptor.cpp">
+      <Filter>src\security\crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="src\protocol\PacketFactory\PacketFactory.cpp">
+      <Filter>src\protocol\packetfactory</Filter>
+    </ClCompile>
+    <ClCompile Include="src\protocol\UDPReliabilityProtocol\UDPReliabilityProtocol.cpp">
+      <Filter>src\protocol\udpreliabilityprotocol</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main\entry.cpp">
+      <Filter>src\main</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>pch_framework</Filter>
+    </ClCompile>
+    <ClCompile Include="src\api\RiftClient.cpp">
+      <Filter>src\api</Filter>
+    </ClCompile>
+    <ClCompile Include="src\api\RiftServer.cpp">
+      <Filter>src\api</Filter>
+    </ClCompile>
+    <ClCompile Include="utilities\logger\Logger.cpp">
+      <Filter>src\utilities\logger</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\iocpmanager\IOCPManager.cpp">
+      <Filter>src\core\iocpmanager</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\riftnetio\RiftNetIO.cpp">
+      <Filter>src\core\riftnetio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\connection\Connection.cpp">
+      <Filter>src\core\connection</Filter>
+    </ClCompile>
+    <ClCompile Include="src\security\secureconnection\secureconnection.cpp">
+      <Filter>src\security\secureconnection</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
